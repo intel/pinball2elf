@@ -1,0 +1,31 @@
+Enabled messages [UnixVersion()] 30  info: Informational messages (enabled by default)
+Logger finished sanity check 
+Logger parsed command line arguments 
+Logger initialized PIN symbols 
+Memory logger configured 
+Logger configured user name and host name 
+Logger first configuration phase completed 
+Region selector activated 
+[0] Pinball basename: /nfs/mmdc/disks/tpi4/proj/ThreadPoints/test/hello/pinball.main/log
+Found VDSO area from Pin AUXV at 0x7ffff7ffb000:0x7ffff7ffc000
+Loading /nfs/mmdc/disks/tpi4/proj/ThreadPoints/test/hello/hello(0x000400000:0x0004006eb)
+Loading /lib64/ld-linux-x86-64.so.2(0x7ffff7ddd000:0x7ffff7dfbc47)
+[0] Started logging thread OSPid: 4786 OSTid: 4786
+Replacing AT_SYSINFO_EHDR
+	 from AT_SYSINFO_EHDR, 0x7ffff7ffb000
+	 to AT_IGNORE,0
+Loading /lib64/libc.so.6(0x7fffe2fcb000:0x7fffe33468b7)
+[0] region-start
+[0] + RECEIVED AND PROCESSED START event: ip:0x000400500 icount: 0 time:Wed Feb  8 08:24:25 2017
+[0] Stopping all threads - processing controller event
+[0] Stopping all threads succeeded
+[0] + STARTING NEW REGION at: ip:0x00040051e icount: 0 time:Wed Feb  8 08:24:25 2017
+[0]  Region# : 0
+[0] Region has 1 existing threads(s)
+[0] Resuming all threads - complied processing controller event
+[0] InitRegion : 0
+[0] EndRegion called for pp_id: 0
+[0] ThreadFini: logger thread at 0x7fffe3076996 @icount 3922
+[0] Closing global resources.
+[0] RemoveSyscallFromRanges: removed pages: 0
+[0] Wrote address ranges: pagecount: 421. Logged text pages count:421 Logged data pages count:0 (total logged pages:421)

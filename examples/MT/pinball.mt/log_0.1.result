@@ -1,0 +1,19 @@
+-- start of image-load-log --------------------------------------- 
+-- end of image-load-log ----------------------------------------- 
+copy_images: 0
+inscount: 106
+OSTid: 20156
+log_entries: 0
+ended_before_sc: 0
+num_logged_true_dependencies (RAW): 5
+num_logged_false_dependencies (WAR/WAW): 3
+num_signals 0
+num_syscalls: 0
+ip_type: init_pc: 0x55b30d5664f4
+ip_type:last_pc: 0x7f2d614dc0a8
+restore_text_pc: 1
+ip_entry:restoretext_pc: 0x55b30d565a10
+ip_entry:restoretext_pc: 0x55b30d5666ad
+ip_entry:restoretext_pc: 0x7f2d614ccb47
+ip_entry:restoretext_pc: 0x7f2d614ccb55
+ip_entry:restoretext_pc: 0x55b30d5664f4

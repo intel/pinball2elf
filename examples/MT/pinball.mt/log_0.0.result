@@ -1,0 +1,32 @@
+-- start of image-load-log --------------------------------------- 
+Loading /home/hgpatil/NUSingapore/dijkstra-global-perthread-6-26-2019/global/icount/dijkstra_openmp.gcc(0x55b30d565000:0x55b30d566cc6)
+Loading /lib64/ld-linux-x86-64.so.2(0x7f2d77081000:0x7f2d770a7c22)
+Loading /usr/lib/x86_64-linux-gnu/libgomp.so.1(0x7f2d614c3000:0x7f2d616f164e)
+Loading /lib/x86_64-linux-gnu/libc.so.6(0x7f2d610ce000:0x7f2d614beade)
+Loading /lib/x86_64-linux-gnu/libdl.so.2(0x7f2d60eca000:0x7f2d610cd10e)
+Loading /lib/x86_64-linux-gnu/libpthread.so.0(0x7f2d60cab000:0x7f2d60ec947e)
+preloaded_image: 1 1  0x55b30d565000 0x7f2d73da5070 0x55b30d766d30 0x55b30d565000 /home/hgpatil/NUSingapore/dijkstra-global-perthread-6-26-2019/global/icount/dijkstra_openmp.gcc
+preloaded_image: 2 0 0x7f2d77081000 0x7f2d73da5070 0x7f2d772a8e68 0x7f2d77081000 /lib64/ld-linux-x86-64.so.2
+preloaded_image: 4 0 0x7f2d614c3000 0x7f2d73da5070 0x7f2d616f0da0 0x7f2d614c3000 /usr/lib/x86_64-linux-gnu/libgomp.so.1
+preloaded_image: 5 0 0x7f2d610ce000 0x7f2d73da5070 0x7f2d614b8b80 0x7f2d610ce000 /lib/x86_64-linux-gnu/libc.so.6
+preloaded_image: 6 0 0x7f2d60eca000 0x7f2d73da5070 0x7f2d610ccd90 0x7f2d60eca000 /lib/x86_64-linux-gnu/libdl.so.2
+preloaded_image: 7 0 0x7f2d60cab000 0x7f2d73da5070 0x7f2d60ec4d68 0x7f2d60cab000 /lib/x86_64-linux-gnu/libpthread.so.0
+-- end of image-load-log ----------------------------------------- 
+copy_images: 0
+inscount: 74
+OSTid: 20149
+log_entries: 0
+ended_before_sc: 0
+num_logged_true_dependencies (RAW): 1
+num_logged_false_dependencies (WAR/WAW): 0
+num_signals 0
+num_syscalls: 0
+ip_type: init_pc: 0x55b30d5666e1
+ip_type:last_pc: 0x7f2d614dc0af
+restore_text_pc: 1
+ip_entry:restoretext_pc: 0x55b30d565a10
+ip_entry:restoretext_pc: 0x55b30d5666ad
+ip_entry:restoretext_pc: 0x7f2d614ccb40
+ip_entry:restoretext_pc: 0x7f2d614ccb47
+ip_entry:restoretext_pc: 0x7f2d614dc070
+ip_entry:restoretext_pc: 0x7f2d614dc1c0

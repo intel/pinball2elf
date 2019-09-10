@@ -1,0 +1,77 @@
+Enabled messages [UnixVersion()] 55  info: Informational messages (enabled by default)
+Pinball basename: dijkstra.cversion_19652.pp/dijkstra.cversion_19652_globalr5_warmup0_prolog0_region1101_epilog0_005_0-26923
+Replaying on 'Linux', recorded on 'Linux'
+Found VDSO in page 0x7fffc2cae000
+NOP sequence address allocated in empty range 0x55b30d567000 
+Preloaded images: 6
+Setting image replay mode in Pin.
+[0] Started Replaying thread OSPid: 20271 OSTid: 20271
+[0] Restoring initial pages
+Replay preloaded image: /home/hgpatil/NUSingapore/dijkstra-global-perthread-6-26-2019/global/icount/dijkstra_openmp.gcc Image index: 0
+Replay preloaded image: /lib64/ld-linux-x86-64.so.2 Image index: 1
+Replay preloaded image: /usr/lib/x86_64-linux-gnu/libgomp.so.1 Image index: 3
+Replay preloaded image: /lib/x86_64-linux-gnu/libc.so.6 Image index: 4
+Replay preloaded image: /lib/x86_64-linux-gnu/libdl.so.2 Image index: 5
+Replay preloaded image: /lib/x86_64-linux-gnu/libpthread.so.0 Image index: 6
+[0] Thread replayer initialized
+[0] Mapping stack address, pin tid 0
+[0] Going to create 7 threads 
+[0] Num created threads: 1 Num threads to create: 7
+[0] Restoring Initial checkpoint before PC:0x55b30d5666e1 ctxt: 0x7fb489ffe160
+[0] Replayer ThreadStart Initial IP: 0x55b30d5666e1
+[1] Started Replaying thread OSPid: 20271 OSTid: 20304
+[1] Thread replayer initialized
+[1] Restoring Initial checkpoint before PC:0x55b30d5664f4 ctxt: 0x7fb477703040
+[1] Replayer ThreadStart Initial IP: 0x55b30d5664f4
+[2] Started Replaying thread OSPid: 20271 OSTid: 20305
+[2] Thread replayer initialized
+[2] Restoring Initial checkpoint before PC:0x7f2d614dc0a3 ctxt: 0x7fb476df2040
+[2] Replayer ThreadStart Initial IP: 0x7f2d614dc0a3
+[3] Started Replaying thread OSPid: 20271 OSTid: 20307
+[3] Thread replayer initialized
+[3] Restoring Initial checkpoint before PC:0x7f2d614dc0a3 ctxt: 0x7fb475bd0040
+[3] Replayer ThreadStart Initial IP: 0x7f2d614dc0a3
+[4] Started Replaying thread OSPid: 20271 OSTid: 20306
+[4] Thread replayer initialized
+[4] Restoring Initial checkpoint before PC:0x55b30d5666e1 ctxt: 0x7fb4764e1040
+[4] Replayer ThreadStart Initial IP: 0x55b30d5666e1
+[5] Started Replaying thread OSPid: 20271 OSTid: 20308
+[5] Thread replayer initialized
+[5] Restoring Initial checkpoint before PC:0x7f2d614dc1cb ctxt: 0x7fb4752bf040
+[5] Replayer ThreadStart Initial IP: 0x7f2d614dc1cb
+[6] Started Replaying thread OSPid: 20271 OSTid: 20309
+[6] Thread replayer initialized
+[6] Restoring Initial checkpoint before PC:0x7f2d614dc1cb ctxt: 0x7fb4749ae040
+[6] Replayer ThreadStart Initial IP: 0x7f2d614dc1cb
+[7] Started Replaying thread OSPid: 20271 OSTid: 20310
+[7] Thread replayer initialized
+[7] All threads were created, ready to replay 
+[7] Restoring Initial checkpoint before PC:0x7f2d614dc17f ctxt: 0x7fb47409d040
+[7] Replayer ThreadStart Initial IP: 0x7f2d614dc17f
+[5] Replayer End of thread reached: 80 final count: 80
+[4] Replayer End of thread reached: 119 final count: 119
+[4] Finished replaying thread OSPid: 20271 OSTid: 20306, 119 instructions
+[4] ThreadFini in Replayer
+[6] Replayer End of thread reached: 128 final count: 128
+[6] Finished replaying thread OSPid: 20271 OSTid: 20309, 128 instructions
+[6] ThreadFini in Replayer
+[0] Replayer End of thread reached: 74 final count: 74
+[5] Finished replaying thread OSPid: 20271 OSTid: 20308, 80 instructions
+[5] ThreadFini in Replayer
+[1] Replayer End of thread reached: 106 final count: 106
+[0] Finished replaying thread OSPid: 20271 OSTid: 20271, 74 instructions
+[0] ThreadFini in Replayer
+[7] Replayer End of thread reached: 111 final count: 111
+[1] Finished replaying thread OSPid: 20271 OSTid: 20304, 106 instructions
+[1] ThreadFini in Replayer
+[2] Replayer End of thread reached: 30 final count: 30
+[2] Finished replaying thread OSPid: 20271 OSTid: 20305, 30 instructions
+[2] ThreadFini in Replayer
+[7] Finished replaying thread OSPid: 20271 OSTid: 20310, 111 instructions
+[7] ThreadFini in Replayer
+[3] Replayer End of thread reached: 33 final count: 33
+[3] Wait for all threads to finish 
+[3] Finished replaying thread OSPid: 20271 OSTid: 20307, 33 instructions
+[3] ThreadFini in Replayer
+Process exit with status 0
+Closing message file

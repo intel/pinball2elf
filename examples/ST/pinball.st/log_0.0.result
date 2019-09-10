@@ -1,0 +1,44 @@
+-- start of image-load-log --------------------------------------- 
+Loading /nfs/mmdc/disks/tpi4/proj/ThreadPoints/test/hello/hello(0x000400000:0x0004006eb)
+Loading /lib64/ld-linux-x86-64.so.2(0x7ffff7ddd000:0x7ffff7dfbc47)
+Loading /lib64/libc.so.6(0x7fffe2fcb000:0x7fffe33468b7)
+preloaded_image: 1 1  0x000000000 0x7ffff51fbb20 0x000600708 0x000000000 /nfs/mmdc/disks/tpi4/proj/ThreadPoints/test/hello/hello
+preloaded_image: 2 0 0x7ffff7ddd000 0x7ffff51fbb20 0x7ffff7ffce70 0x7ffff7ddd000 /lib64/ld-linux-x86-64.so.2
+preloaded_image: 3 0 0x7fffe2fcb000 0x7ffff51fbb20 0x7fffe3340b60 0x7fffe2fcb000 /lib64/libc.so.6
+-- end of image-load-log ----------------------------------------- 
+copy_images: 0
+inscount: 3922
+OSTid: 4786
+log_entries: 3
+ended_before_sc: 0
+num_logged_true_dependencies (RAW): 0
+num_logged_false_dependencies (WAR/WAW): 0
+num_signals 0
+num_syscalls: 4
+ip_type: init_pc: 0x0004003d0
+ip_type:last_pc: 0x7fffe3076996
+restore_text_pc: 1
+ip_entry:restoretext_pc: 0x7ffff7de6bd3
+ip_entry:restoretext_pc: 0x7ffff7de610b
+ip_entry:restoretext_pc: 0x7ffff7de6186
+ip_entry:restoretext_pc: 0x7fffe304074c
+ip_entry:restoretext_pc: 0x7fffe301a282
+ip_entry:restoretext_pc: 0x7ffff7deaba7
+ip_entry:restoretext_pc: 0x7ffff7de6392
+ip_entry:restoretext_pc: 0x7ffff7deabbe
+ip_entry:restoretext_pc: 0x7ffff7de63b2
+ip_entry:restoretext_pc: 0x7ffff7de63e5
+ip_entry:restoretext_pc: 0x7ffff7deac27
+ip_entry:restoretext_pc: 0x7ffff7deac33
+ip_entry:restoretext_pc: 0x7ffff7deb865
+ip_entry:restoretext_pc: 0x7fffe300f178
+ip_entry:restoretext_pc: 0x0004003d0
+ip_entry:restoretext_pc: 0x0004003d6
+ip_entry:restoretext_pc: 0x7fffe300f222
+ip_entry:restoretext_pc: 0x7fffe300f261
+ip_entry:restoretext_pc: 0x7fffe300f4bf
+ip_entry:restoretext_pc: 0x7ffff7de6999
+ip_entry:restoretext_pc: 0x7ffff7de69b5
+ip_entry:restoretext_pc: 0x7ffff7df36a0
+ip_entry:restoretext_pc: 0x7ffff7df36a2
+ip_entry:restoretext_pc: 0x7ffff7de6ba8
