@@ -17,4 +17,4 @@ To create ELF binary from PINBALL, run following command:
 
    pinball2elf -d <pinball.global.log> -s <pinball.0.reg> -m <pinball.text> -r <pinball.address> -x elf_binary_name
 
-See examples/*/test*.sh scripts for example usage.
+See examples/\*/test\*.sh scripts for example usage.
