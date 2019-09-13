@@ -1,14 +1,28 @@
 #!/bin/bash
-which pinball2elfbasic.sh
-if [ $? -ne 0 ];
+if [ -e ../../scripts ];
 then
-  echo "Please put PINBALL2ELFKIT/scripts in your PATH"
-  exit
+    SCRIPTLOC=../../scripts/
+    RAWSCRIPT=$SCRIPTLOC/pinball2elfraw.sh
+    GESCRIPT=$SCRIPTLOC/pinball2elfgracefulexit.sh
+else
+  which pinball2elfraw.sh
+  if [ $? -ne 0 ];
+  then
+    echo "Please put PINBALL2ELFKIT/scripts in your PATH"
+    exit
+  fi
+  RAWSCRIPT=`which pinball2elfraw.sh`
+  GESCRIPT=`which pinball2elfgracefulexit.sh`
 fi
 pinball=pinball.mt/log_0
-set -x
-pinball2elfraw.sh $pinball > /dev/null 2>&1
-set +x
+echo "Running $RAWSCRIPT $pinball" 
+$RAWSCRIPT $pinball > /dev/null 2>&1
+if [ ! -e $pinball.elfie  ];
+then
+    echo "Failed command: '$RAWSCRIPT $pinball'"
+    exit
+fi
+echo "Running $pinball.elfie "
 $pinball.elfie 
 if [ $? -eq 0 ];
 then
@@ -17,9 +31,14 @@ else
   echo "raw execution FAILURE"
 fi
 rm $pinball.elfie 
-set -x
-pinball2elfgracefulexit.sh $pinball > /dev/null 2>&1
-set +x
+echo "Running $GESCRIPT $pinball" 
+$GESCRIPT $pinball > /dev/null 2>&1
+if [ ! -e $pinball.elfie  ];
+then
+    echo "Failed command: '$GESCRIPT $pinball'"
+    exit
+fi
+echo "Running $pinball.elfie "
 $pinball.elfie > /dev/null 2>&1
 if [ $? -eq 0 ];
 then
