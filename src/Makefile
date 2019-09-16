@@ -130,7 +130,7 @@ OBJS_DBG := $(addprefix $(OBJDIR_DBG)/,$(LIT2ELF_OBJS))
 
 ######################################################################
 
-default: $(LIT2ELF)
+default: $(LIT2ELF) $(LIBPERFLE) $(LIBCLE)
 
 dbg: $(LIT2ELFD) $(LIBPERFLE) $(LIBCLE)
 
