@@ -1,13 +1,17 @@
 To build:
  cd src
+ 
  make clean; make all
 
 To test:
- put <scripts> directory in your PATH
- cd examples
- cd ST
+  cd examples
+  
+   cd ST
+   
  ./testST.sh
+ 
  cd ../MT
+ 
  testMT.sh 
 
 About:
