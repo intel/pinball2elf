@@ -70,6 +70,8 @@ config_t::config_t()
    m_arch_state_file = NULL;
    m_obj_file = NULL;
    m_mem_image_file = NULL;
+   m_dseg_name = NULL;
+   m_tseg_name = NULL;
 }
 
 void config_t::help_msg(const char* exe_name) const
@@ -84,8 +86,8 @@ void config_t::help_msg(const char* exe_name) const
              << "  -o FILE                          object file name\n"
              << "  -S FILE                          architectural state converted to assembly\n"
              << "  -T FILE, --ld-script FILE        linker script\n"
-             << "  -C FLAGS, --data-seg-flags FLAGS set data sections flags, combination of A,W,X\n"
-             << "  -D FLAGS, --text-seg-flags FLAGS set text sections flags, combination of A,W,X\n"
+             << "  -D FLAGS, --data-seg-flags FLAGS set data sections flags, combination of A,W,X\n"
+             << "  -C FLAGS, --text-seg-flags FLAGS set text sections flags, combination of A,W,X\n"
              << "  -u ADDR, --usr-space-top ADDR    top address of the user space, hex number or 'unlimited'\n"
              << "  -l ADDR, --ld-break-addr ADDR    prevent loading of pages above this address by the ELF-loader\n"
              << "  -i NUM, --thread-min-icount NUM  exclude threads with incstruction counter less than NUM\n"
@@ -100,6 +102,8 @@ void config_t::help_msg(const char* exe_name) const
              << "  --[no-]monitor-thread            enable/disable(DEFAULT) creation of the monitor thread waiting for all others\n"
              << "  --roi-start [TYPE:]TAG           defines type (sniper, ssc or simics) and tag for ROI start marker\n"
              << "  --magic2 [TYPE:]TAG              defines type (sniper, ssc or simics) and tag for 2nd magic instruction\n"
+             << "  --data-seg-name NAME             set data sections name\n"
+             << "  --text-seg-name NAME             set text sections name\n"
              //<< "  --roi-thread TID                 defines ID of thread for which ROI start marker should be executed\n"
              << "  -Wl,<options>                    pass comma-separated <options> on to the linker\n"
              << "  -V, --verbose                    output additional information\n"
@@ -446,6 +450,16 @@ void config_t::init(int argc, char* argv[])
       {
          optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
          m_tseg_flags = str_to_seg_type(argi[1], argi[0]);
+      }
+      else if(is_opt(argi[0], "--data-seg-name"))
+      {
+         optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
+         m_dseg_name = argi[1];
+      }
+      else if(is_opt(argi[0], "--text-seg-name"))
+      {
+         optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
+         m_tseg_name = argi[1];
       }
       else if(is_opt(argi[0], "-p") || is_opt(argi[0], "--process-cbk"))
       {

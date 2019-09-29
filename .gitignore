@@ -1,0 +1,5 @@
+src/obj
+src/lib/*.o
+src/lib/*.a
+src/pinball2elf
+src/pinball2elfd

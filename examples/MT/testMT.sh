@@ -23,7 +23,7 @@ then
     exit
 fi
 echo "Running $pinball.elfie "
-$pinball.elfie 
+$pinball.elfie
 if [ $? -eq 0 ];
 then
   echo "raw execution SUCCESS"

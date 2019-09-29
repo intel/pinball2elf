@@ -35,8 +35,8 @@ END_LEGAL */
 
 
 static char CommentSecn[] = "pinball2elf 1.0";
-static char DataSegName[] = ".pbdata";
-static char TextSegName[] = ".pbtext";
+static char DataSegName[] = ".data";
+static char TextSegName[] = ".text";
 static char DmapSegName[] = ".pbdmap";
 static char StckSegName[] = ".pbstck";
 static char RelaTextSegName[] = ".rela.pbtext";
@@ -183,12 +183,12 @@ static void litelfCreateMemImageSections(elf_t& elf, elf_t::symtab& symtab, lte_
 
       if((region_flags = region->flags) & SHF_EXECINSTR)
       {
-         name = TextSegName;
+         name = get_config().get_tseg_name(TextSegName);
          flags = text_flags;
       }
       else
       {
-         name = DataSegName;
+         name = get_config().get_dseg_name(DataSegName);
          flags = data_flags;
       }
 
@@ -799,7 +799,7 @@ int main(int argc, char** argv)
       const Elf_SymInfo_t* sym_end;
       elf_t::section* section;
 
-      for(section = elf->get_section(DataSegName), sym = entry->get_data_sym_first(), sym_end = entry->get_data_sym_end(); sym != sym_end; ++sym)
+      for(section = elf->get_section(get_config().get_dseg_name(DataSegName)), sym = entry->get_data_sym_first(), sym_end = entry->get_data_sym_end(); sym != sym_end; ++sym)
       {
          if( section && sym && sym->name)
          {
@@ -813,7 +813,7 @@ int main(int argc, char** argv)
          }
       }
 
-      for(section = elf->get_section(TextSegName), sym = entry->get_code_sym_first(), sym_end = entry->get_code_sym_end(); sym != sym_end; ++sym)
+      for(section = elf->get_section(get_config().get_tseg_name(TextSegName)), sym = entry->get_code_sym_first(), sym_end = entry->get_code_sym_end(); sym != sym_end; ++sym)
       {
          if(section && sym && sym->name)
          {
@@ -872,7 +872,7 @@ int main(int argc, char** argv)
           {
             LTE_ASSERT(sec1);
           }
-          elf_t::section * sec2 =  (elf->get_section(TextSegName));
+          elf_t::section * sec2 =  (elf->get_section(get_config().get_tseg_name(TextSegName)));
           if(sec2)
           {
           rela_text->set_sh_info(sec2->get_index());
