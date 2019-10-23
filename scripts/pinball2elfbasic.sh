@@ -10,6 +10,16 @@ ERROR()
     exit 1
 }
 
+IS_SYS_FILE()
+{
+  filename=$1
+  res=`echo $filename | awk '
+    /\/sys/ || /\/proc/ || /\/usr/ || /\/lib/ || /\/etc/ {print 1; next}
+    {print 0}
+  '`
+  return
+}
+
 STRACE()
 {
   strace=$1
@@ -34,7 +44,13 @@ STRACE()
 #0,7540,7540,2,SYS_open,3,0,0,/lib64/libc.so.6,/nfs/.../test
         fd=`echo $rec | awk -F"," '{print $6}'`
         fname=`echo $rec | awk -F"," '{print $9}'`
-        echo "  myfd = lte_syscall(__NR_open, (uint64_t)\"$fname\", O_RDONLY,S_IRWXU,0,0,0);" >> $cfile
+        IS_SYS_FILE $fname 
+        if [ $res -eq 1 ];
+        then
+          echo "  myfd = lte_syscall(__NR_open, (uint64_t)\"$fname\", O_RDONLY,S_IRWXU,0,0,0);" >> $cfile
+        else
+          echo "  myfd = lte_syscall(__NR_open, (uint64_t)\"$fname\", O_RDWR,S_IRWXU,0,0,0);" >> $cfile
+        fi
         echo "  lte_syscall(__NR_dup2, myfd, $fd,0,0,0,0);" >> $cfile
       ;;
       "SYS_read")
@@ -89,10 +105,28 @@ fi
     echo $BASE
     basedir=`dirname $BASE`
     basename=`basename $BASE`
+    tmpBASE=$BASE
     if test "$( find $basedir -name "$basename*reg.bz2" -print -quit)"
     then
-        bunzip2  $BASE*reg.bz2
-        bunzip2  $BASE*.text.bz2
+        tmpbasedir="/tmp/$$.pinball"
+        tmpBASE="$tmpbasedir/$basename"
+        mkdir -p $tmpbasedir
+        for regfile in   $BASE*.reg.bz2
+        do
+          rbasename=`basename $regfile | sed '/.bz2/s///'`
+          bunzip2 -c $regfile > $tmpbasedir/$rbasename
+        done
+        for textfile in  $BASE*.text.bz2
+        do
+          tbasename=`basename $textfile | sed '/.bz2/s///'`
+          bunzip2 -c $textfile > $tmpbasedir/$tbasename
+        done
+        for otherfile in `ls $basedir | grep -v "reg.bz2"| grep -v "\.text.bz2"`
+        do
+          obasename=`basename $otherfile`
+          srcfile=`readlink -f $basedir/$otherfile`
+          cp -rs $srcfile $tmpbasedir/$obasename
+        done
         compression=1
     fi
     magicval=0x1
@@ -113,10 +147,9 @@ fi
       echo "void replay_syscalls(){}" >> /tmp/basic_callbacks.$$.c
     fi
     gcc -g -I$PINBALL2ELFLOC/lib -c /tmp/basic_callbacks.$$.c -o /tmp/basic_callbacks.$$.o
-    time  $PINBALL2ELF --text-seg-flags WXA --data-seg-flags WXA --cbk-stack-size 102400 --modify-ldt -u unlimited -l 0x0 -i $icount_threshold --roi-start ssc:$sscmark --roi-start simics:$magicval --magic2 simics:$magicval2 -d $BASE.global.log -m $BASE.text -r $BASE.address -x $BASE.elfie -p elfie_on_start  -t elfie_on_thread_start   /tmp/basic_callbacks.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
+    time  $PINBALL2ELF --text-seg-flags WXA --data-seg-flags WXA --cbk-stack-size 102400 --modify-ldt -u unlimited --roi-start ssc:$sscmark  --roi-start simics:$magicval --magic2 simics:$magicval2 -l 0x0 -i 0 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $BASE.elfie -p elfie_on_start -t elfie_on_thread_start /tmp/basic_callbacks.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
     cp  /tmp/basic_callbacks.$$.c basic_callbacks.c
     rm  /tmp/basic_callbacks.$$.*
     if [ $compression -eq 1 ]; then
-        bzip2  $BASE*reg
-        bzip2  $BASE*.text
+       rm -rf $tmpbasedir
     fi
