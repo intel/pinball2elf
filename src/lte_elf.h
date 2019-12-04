@@ -102,6 +102,11 @@ class elf_t {
                LTE_ASSERT(m_elf != NULL);
                return m_elf->shstrtab()[0] + get_sh_name();//[m_sh_index];
             }
+            void set_name(const char* name)
+            {
+               LTE_ASSERT(m_elf != NULL);
+               m_elf->shstrtab().set(m_elf->shstrtab().find(get_sh_name()), name);
+            }
             const elf_data_t* get_data() const { return &m_data; }
             elf_data_t* get_data() { return &m_data; }
             void set_data(elf_data_t* data);
@@ -314,7 +319,10 @@ class elf_t {
       section* get_section(Elf64_Addr addr, Elf64_Xword flag);
       section* get_section(Elf64_Section index) { return m_sections[index-1]; }
 
+      bool rename_section(const char* name, const char* new_name);
+
       const strtab& shstrtab() const { return m_shstrtab; }
+      strtab& shstrtab() { return m_shstrtab; }      
       lte_size_t get_ehdr_size() const { return m_ehdr_size; }
       Elf64_Half get_max_phnum() const { return m_max_phnum; }
 

@@ -28,15 +28,17 @@ protected:
     std::vector<lte_size_t> index;
 
 protected:
-    const char* ptr() const { return table.size() ? &(table[0]) : NULL; }
-          char* ptr()       { return table.size() ? &(table[0]) : NULL; }
+    const char* ptr() const { return table.size() ? &(table[0]) : nullptr; }
+          char* ptr()       { return table.size() ? &(table[0]) : nullptr; }
+    lte_size_t push_back(const void* p, lte_size_t size, int c);
 
 public:
     elf_table_t(){}
     ~elf_table_t(){}
 
 public:
-    lte_size_t push_back(const void* p, lte_size_t size, int c = 0);
+    lte_size_t push_back(const void* p, lte_size_t size) { return push_back(p, size, 0); }
+    lte_size_t push_back(int c, lte_size_t size) { return push_back(nullptr, size, c); }
     void pop_back(lte_size_t n = 1);
 
     template<typename T> T& get(lte_size_t offs)
@@ -75,6 +77,8 @@ public:
         return index[i];
     }
 
+    lte_int32_t find(lte_size_t offset) const;
+
     lte_size_t size(lte_uint32_t i) const
     {
         lte_uint32_t inext = i + 1;
@@ -107,7 +111,7 @@ public:
     ~elf_strtab_t(){}
 
 public:
-    lte_size_t push_back_strtab(const char* strtable, lte_size_t size);
+    void push_back_strtab(const char* strtable, lte_size_t size);
     lte_size_t push_back_fmt(const char* fmt, ...);
     lte_size_t push_back(const char* str)
     {
@@ -118,6 +122,7 @@ public:
         push_back(str);
         return *this;
     }
+    lte_ssize_t set(lte_uint32_t i, const char* p);
 };
 
 

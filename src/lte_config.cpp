@@ -70,8 +70,6 @@ config_t::config_t()
    m_arch_state_file = NULL;
    m_obj_file = NULL;
    m_mem_image_file = NULL;
-   m_dseg_name = NULL;
-   m_tseg_name = NULL;
 }
 
 void config_t::help_msg(const char* exe_name) const
@@ -450,16 +448,6 @@ void config_t::init(int argc, char* argv[])
       {
          optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
          m_tseg_flags = str_to_seg_type(argi[1], argi[0]);
-      }
-      else if(is_opt(argi[0], "--data-seg-name"))
-      {
-         optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
-         m_dseg_name = argi[1];
-      }
-      else if(is_opt(argi[0], "--text-seg-name"))
-      {
-         optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
-         m_tseg_name = argi[1];
       }
       else if(is_opt(argi[0], "-p") || is_opt(argi[0], "--process-cbk"))
       {

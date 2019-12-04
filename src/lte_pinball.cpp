@@ -569,11 +569,11 @@ bool pinball_memimg_t::load_compressed(const char* fname,
       lte_uint32_t count = line.str_count();
       if(!strncmp(line[0], "/0x", 3))
       {
-        page_addr = lte_strtoull(line[0] + 3, &end, 16);
+         page_addr = lte_strtoull(line[0] + 3, &end, 16);
       }
       else
       {
-          LTE_ERRAX(1, "page address format error [%s:%d]", fname, f.getlinesread());
+         LTE_ERRAX(1, "page address format error [%s:%d]", fname, f.getlinesread());
       }
       lte_uint32_t i = 0;
       lte_uint32_t buffered_repeat_count = 0;
@@ -608,7 +608,7 @@ bool pinball_memimg_t::load_compressed(const char* fname,
             }
             // Check markers
             if (line[0][0] == repeat_marker_char)
-            {   // this is a repeat count, the buffered_load_value should remain the
+            { // this is a repeat count, the buffered_load_value should remain the
               // same for buffered_repeat_count times
               // read as a decimal number
               buffered_repeat_count = lte_strtoull(line[0]+1, &end, 10);
