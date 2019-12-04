@@ -39,8 +39,6 @@ class config_t {
       const char* m_exe_file;
       const char* m_obj_file;
       const char* m_arch_state_out_file;
-      const char* m_dseg_name;
-      const char* m_tseg_name;
       std::string m_default_exe_file;
       Elf32_Word m_dseg_flags;
       Elf32_Word m_tseg_flags;
@@ -133,14 +131,6 @@ class config_t {
       const char* get_thread_cbk_name() const
       {
          return m_tstart_cbk;
-      }
-      const char* get_dseg_name(const char* default_dseg_name) const
-      {
-         return m_dseg_name ? m_dseg_name : default_dseg_name;
-      }
-      const char* get_tseg_name(const char* default_tseg_name) const
-      {
-         return m_tseg_name ? m_tseg_name : default_tseg_name;
       }
       lte_uint64_t get_thread_min_icount() const
       {

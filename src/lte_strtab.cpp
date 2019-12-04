@@ -15,6 +15,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 END_LEGAL */
 #include "lte_strtab.h"
 #include <stdarg.h>
+#include <algorithm>
+#include <iostream>
+#include <iomanip>
+
+lte_int32_t elf_table_t::find(lte_size_t offset) const
+{
+   return (offset < table.size()) ? (std::distance(index.begin(), std::upper_bound(index.begin(), index.end(), offset)) - 1) : -1;
+}
 
 lte_size_t elf_table_t::pad(lte_size_t size)
 {
@@ -64,50 +72,22 @@ void elf_table_t::pop_back(lte_size_t n)
    }
 }
 
-lte_size_t elf_strtab_t::push_back_strtab(const char* strtable, lte_size_t size)
+void elf_strtab_t::push_back_strtab(const char* strtable, lte_size_t size)
 {
-   if(!size)
-      return 0;
-
-   lte_size_t offs = table.size();
-   table.resize(offs + size);
-
-   char* pstr = ptr();
-   if(pstr)
+   if(size)
    {
-    pstr = pstr + offs;
-    memcpy(pstr, strtable, size);
+      lte_size_t offs = table.size();
+      lte_size_t tz = (strtable[size - 1] ? 1 : 0);
+      table.resize(offs + size + tz, 0x72);
 
-    for(char* pend = pstr + size; pstr != pend;)
-    {
-      char* p = pstr;
-      for(; (p != pend) && *p; ++p);
-      index.push_back(pstr - ptr());
-      pstr = *p ? p : ++p;
-    }
+      char* pdst = ptr() + offs;
+      for(const char *psrc = strtable, *pend = strtable + size; psrc != pend;)
+      {
+         index.push_back(pdst - ptr());
+         while((psrc != pend) && (*pdst++ = *psrc++));
+      }
+      pdst[tz - 1] = 0;
    }
-   else
-   {
-    LTE_ASSERT(pstr);
-   }
-
-   offs = table.size();
-   char * tmp = ptr();
-    
-   if(tmp)
-   {
-    if(!tmp[offs-1])
-    {
-     table.resize(offs+1);
-     tmp[offs] = 0;
-    }
-   }
-   else
-   {
-    LTE_ASSERT(tmp);
-   }
-
-   return table.size();
 }
 
 lte_size_t elf_strtab_t::push_back_fmt(const char* fmt, ...)
@@ -120,8 +100,10 @@ lte_size_t elf_strtab_t::push_back_fmt(const char* fmt, ...)
    len = lte_vsnprintf(ptr()+offs, 0, fmt, args);
    va_end(args);
 
-   len++;
-   table.resize(table.size() + len);
+   if(!len)
+      return 0;
+
+   table.resize(table.size() + ++len);
    index.push_back(offs);
 
    va_start(args, fmt);
@@ -129,4 +111,34 @@ lte_size_t elf_strtab_t::push_back_fmt(const char* fmt, ...)
    va_end(args);
 
    return offs;
+}
+
+lte_ssize_t elf_strtab_t::set(lte_uint32_t ind, const char* src)
+{
+   if(ind >= count())
+      return 0;
+
+   lte_size_t dst_size = size(ind);
+   lte_size_t src_size = lte_strlen(src) + 1;
+   lte_size_t table_size = table.size(); 
+   lte_size_t offs = offset(ind); 
+
+   if(src_size != dst_size)
+   {
+      if(src_size < dst_size)
+      {
+         memcpy(&table[offs + src_size], &table[offs + dst_size], table_size - (offs + dst_size));
+         table.resize(table_size - (dst_size - src_size));
+      }
+      else
+      {
+         table.resize(table_size + (src_size - dst_size));
+         memmove(&table[offs + src_size], &table[offs + dst_size], table_size - (offs + dst_size));
+      }
+      for(lte_uint32_t i = ind + 1; i < index.size(); ++i)
+         index[i] += (src_size - dst_size);  
+   } 
+   memcpy(&table[offs], src, src_size);
+
+   return (src_size - dst_size);
 }

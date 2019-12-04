@@ -257,29 +257,30 @@ elf_t* elf_t::create(const char* fname, bool only_headers)
    unsigned char eclass;
    FILE* fh = NULL;
 
-   if((fname == NULL) || 
-      ((fh = fopen(fname, "r")) == NULL) ||
+   if(fname == NULL)
+      return NULL;
+
+   if(((fh = fopen(fname, "r")) == NULL) ||
       (fread(&esignature, sizeof(esignature), 1, fh) != 1) ||
       (esignature != ELFSIGNATURE) ||
       (fread(&eclass, sizeof(eclass), 1, fh) != 1))
-      { 
-        if(fh) fclose(fh); 
-        return NULL;
-      }
+   { 
+      fclose(fh); 
+      return NULL;
+   }
 
    elf_t* elf = elf_t::create(eclass);
-
-   fseek(fh, 0, SEEK_SET);
    if(elf)
    {
-   if(only_headers)
-      elf->read_headers(fileno(fh));
-   else
-      elf->read(fileno(fh));
+      fseek(fh, 0, SEEK_SET);
+      if(only_headers)
+         elf->read_headers(fileno(fh));
+      else
+         elf->read(fileno(fh));
    }
    else
    {
-    LTE_ASSERT(elf);
+      LTE_ASSERT(elf);
    }
    fclose(fh);
 
@@ -352,8 +353,8 @@ elf_t::section* elf_t::create_section(const char* name, Elf64_Word type, Elf64_W
    other sections, when e_sections is empty.*/
 void elf_t::create_null_section()
 {
-    m_shstrtab.push_back("");
-    set_e_shnum(1);
+   m_shstrtab.push_back("");
+   set_e_shnum(1);
 }
 
 void elf_t::create_shstrtab()
@@ -361,14 +362,48 @@ void elf_t::create_shstrtab()
     section* s = create_section(".shstrtab", SHT_STRTAB);
     if(s)
     {
-      set_e_shstrndx(s->get_index());
-      s->set_sh_addralign(1);
-      s->set_data(&m_shstrtab);
+       set_e_shstrndx(s->get_index());
+       s->set_sh_addralign(1);
+       s->set_data(&m_shstrtab);
     }
     else
     {
-      LTE_ASSERT(s);
+       LTE_ASSERT(s);
     }
+}
+
+bool elf_t::rename_section(const char* name, const char* new_name)
+{
+   assert(name && *name);
+   assert(new_name && *new_name);
+
+   if(m_sections_map.find(new_name) != m_sections_map.end())
+      return false;
+
+   auto r = m_sections_map.find(name);
+
+   if(r == m_sections_map.end())
+      return false;
+
+   section* s = r->second;
+   lte_int32_t sh_name_index = m_shstrtab.find(s->get_sh_name());
+
+   if(sh_name_index == -1)
+      return false;
+
+   auto offs = m_shstrtab.set(sh_name_index, new_name);
+
+   for(auto it = m_sections_map.begin(); it != m_sections_map.end(); ++it)
+   {
+      if(it->second->get_sh_name() > s->get_sh_name())
+      {
+         it->second->set_sh_name(it->second->get_sh_name() + offs);
+      }
+   }
+   m_sections_map[new_name] = s;
+   m_sections_map.erase(r);
+
+   return true;
 }
 
 void elf_t::clear(bool no_null_section)
@@ -782,13 +817,20 @@ class mmap_ptr_t {
    protected:
       T*     m_ptr;
       size_t m_size;
+      off_t  m_offset;      
       int    m_fd;
    public:
-      mmap_ptr_t() : m_ptr(NULL), m_size(0), m_fd(-1) {}
-      mmap_ptr_t(int fd, size_t size, off_t offset): m_size(size), m_fd(fd)
+      mmap_ptr_t() : m_ptr(NULL), m_size(0), m_offset(0), m_fd(-1) {}
+      mmap_ptr_t(int fd, size_t size, off_t offset) : m_ptr(NULL), m_size(0), m_offset(0), m_fd(-1)
       {
-         char* p = (char*)mmap(0, size, PROT_READ, MAP_PRIVATE, fd, offset);
-         m_ptr = (p != MAP_FAILED) ? (T*)p : NULL;
+         void* p = mmap(0, size, PROT_READ, MAP_PRIVATE, fd, offset);
+         if(p != MAP_FAILED)
+         {
+            m_ptr = (T*)p;
+            m_size = size;
+            m_offset = offset;
+            m_fd = fd;
+         }
       }
       ~mmap_ptr_t()
       {
@@ -813,7 +855,7 @@ bool elf64_t::read_headers(int fd)
    if(!elf)
       return false;
 
-   Elf64_Ehdr* ehdr = (Elf64_Ehdr*)(char*)elf;
+   Elf64_Ehdr* ehdr = (Elf64_Ehdr*)&elf[0];
 
    LTE_ASSERT(ehdr->e_shentsize == sizeof(Elf64_Shdr));
    m_ehdr = *ehdr;

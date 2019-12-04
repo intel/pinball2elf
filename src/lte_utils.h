@@ -23,6 +23,7 @@ END_LEGAL */
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
+#include <paths.h>
 
 #ifndef __cplusplus
   #define __LTE_NO_EXCEPTIONS__
@@ -69,7 +70,7 @@ extern "C" {
 #define LTE_TRACE(...) ((void)(0))
 #else
 #define LTE_ASSERT(x)  \
-    (((x)==0)?lte_assert(#x, 0, __FILE__, __LINE__),((void)(0)):((void)(0)))
+    ((!(x))?lte_assert(#x, 0, __FILE__, __LINE__),((void)(0)):((void)(0)))
 #define LTE_TRACE(...) \
     do{lte_trace(__FILE__, __LINE__, __VA_ARGS__);}while(0)
 #endif
@@ -77,7 +78,7 @@ extern "C" {
 #define LTE_DOWNCVT(type, v) \
     (LTE_ASSERT((v)==(type)(v)),((type)(v)))
 
-#define LTE_ERRAX(x, ...)  if((x)) lte_errx(-1, __VA_ARGS__)
+#define LTE_ERRAX(x, ...)  do { if((x)) lte_errx(-1, __VA_ARGS__); } while(0)
 #define LTE_ERRX(...)      lte_errx(-1, __VA_ARGS__)
 #define LTE_WARN(...)      lte_warn_msg(__VA_ARGS__)
 
@@ -94,93 +95,64 @@ void lte_trace(const char* file, int line, const char* fmt, ...);
 #endif
 
 #ifdef __cplusplus
-class mktemp_template_t {
+#include <string>
+#include <regex>
+
+class mktemp_template {
    protected:
-      char  m_tmpfile[FILENAME_MAX];
-      char* m_tmpfile_basename;
+      std::string m_path;
 
    public:
-      mktemp_template_t()
+      mktemp_template(const char* temp_base = nullptr, const char* temp_path = nullptr)
       {
-         m_tmpfile_basename = m_tmpfile + 2;
-         strcpy(m_tmpfile, "./");
+         temp_path = temp_path ? temp_path : _PATH_TMP;
+         temp_base = temp_base ? temp_base : "XXXXXX";
+         std::regex e("/+");
+         m_path = std::regex_replace(std::string(temp_path) + "/" + std::string(temp_base), e, "/");
       }
-      mktemp_template_t(const char* path, char delim = '/')
-      {
-         LTE_ASSERT(path != NULL);
-
-         const char* psrc = path;
-         for(char* pdst = m_tmpfile; *psrc;)
-            if(delim == (*pdst++ = *psrc++))
-               m_tmpfile_basename = pdst;
-
-         if(m_tmpfile_basename == m_tmpfile)
-         {
-            m_tmpfile_basename += 2;
-            strcpy(m_tmpfile, "./");
-         }
-         *m_tmpfile_basename = 0;
-      }
-
-      char* mk_template(const char* tmpl = NULL)
-      {
-         size_t length;
-         if(tmpl == NULL)
-         {
-            static char tmpl_default[] = "XXXXXX";
-            tmpl = tmpl_default;
-            length = sizeof(tmpl_default);
-         }
-         else
-         {
-            length = strlen(tmpl) + 1;
-         }
-
-         size_t path_length = m_tmpfile_basename - m_tmpfile;
-         char* p = (char*)malloc(path_length + length);
-         LTE_ASSERT(p != NULL);
-         memcpy(p, m_tmpfile, path_length);
-         memcpy(p + path_length, tmpl, length);
-         return p;
-      }
+      const std::string& str() const { return m_path; }
+      operator const std::string& () const { return m_path; }
 };
 
-class tempfile_t {
+class mktemp_tempfile {
    protected:
-      char* m_fname;
+      std::string m_fname;
 
    public:
-      tempfile_t() : m_fname(NULL) {}
-      ~tempfile_t() { clear(); }
+      mktemp_tempfile() = default;
+      mktemp_tempfile(const std::string& tmpl) { create(tmpl); }
+      ~mktemp_tempfile() { clear(); }
 
-      const char* create(mktemp_template_t& tmpl)
+      const char* create(const std::string& tmpl)
       {
-         char* fname = tmpl.mk_template();
-         if(fname)
+         if(m_fname.empty())
          {
-          int fd = mkstemp(fname);
-          LTE_ERRAX(fd == -1, "fail to create temporary file");
-          close(fd);
-          clear();
+            std::unique_ptr<char[]> fname = std::make_unique<char[]>(tmpl.length() + 1);
+            memcpy(fname.get(), tmpl.c_str(), tmpl.size() + 1) ;
+
+            int fd = mkstemp(fname.get());
+            if(fd != -1)
+            {
+               close(fd);
+               m_fname = fname.get();
+               return m_fname.c_str();
+            }
          }
-         else
-         {
-           LTE_ASSERT(fname);
-         }
-         return (m_fname = fname);
+         return nullptr; 
       }
       void clear()
       {
-         if(m_fname)
+         if(!m_fname.empty())
          {
-            unlink(m_fname);
-            free(m_fname);
-            m_fname = NULL;
+            unlink(m_fname.c_str());
+            m_fname = std::string();
          }
       }
 
-      operator const char* () const { return m_fname; }
+      const std::string& name() const { return m_fname; }
+      operator const std::string& () const { return m_fname; }
 };
+
 #endif
 
 #endif /*_LTE_UTILS_H_*/

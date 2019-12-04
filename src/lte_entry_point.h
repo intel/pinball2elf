@@ -66,7 +66,7 @@ protected:
    template<typename T> void add(lte_uint32_t tid, const T& sym_data, const char* sym_name, unsigned char sym_info);
    void add(lte_uint32_t tid, const void* sym_data, lte_size_t sym_data_size, const char* sym_name, unsigned char sym_info);
    void add(const void* sym_data, lte_size_t sym_data_size, const char* sym_name, unsigned char sym_info);
-   void add_padding(lte_size_t size, int c = 0) { m_state.push_back(NULL, size, c); }
+   void add_padding(lte_size_t size, int c = 0) { m_state.push_back(c, size); }
 
    void clear_initial_state();
 
