@@ -80,11 +80,16 @@ endif
 
 #@echo '********** Only gcc/g++ compiler supported (Linux only) ******'
 
-LIBLE_PATH = lib
-LIBPERFLE = $(LIBLE_PATH)/libperfle.a
-LIBCLE = $(LIBLE_PATH)/libcle.a
+LIBCLE_PATH = lib
+LIBCLE = $(LIBCLE_PATH)/libcle.a
 
-CXXFLAGS += $(IOPT). 
+LIBPERFLE_PATH = lib
+LIBPERFLE = $(LIBPERFLE_PATH)/libperfle.a
+
+LIBLE_PATH = lible
+LIBLE64 = $(LIBLE_PATH)/lible64.a
+
+CXXFLAGS += $(IOPT).
 CCFLAGS  += $(IOPT).
 
 CXX_COMPILE_OPT = $(CXX) $(COPT) $(CXXFLAGS) $(CXXFLAGS_OPT)
@@ -130,13 +135,13 @@ OBJS_DBG := $(addprefix $(OBJDIR_DBG)/,$(LIT2ELF_OBJS))
 
 ######################################################################
 
-default: $(LIT2ELF) $(LIBPERFLE) $(LIBCLE)
+default: $(LIT2ELF) $(LIBPERFLE) $(LIBCLE) $(LIBLE64)
 
-dbg: $(LIT2ELFD) $(LIBPERFLE) $(LIBCLE)
+dbg: $(LIT2ELFD) $(LIBPERFLE) $(LIBCLE) $(LIBLE64)
 
-opt: $(LIT2ELF) $(LIBPERFLE) $(LIBCLE)
+opt: $(LIT2ELF) $(LIBPERFLE) $(LIBCLE) $(LIBLE64)
 
-all: $(LIT2ELF) $(LIT2ELFD) $(LIBPERFLE) $(LIBCLE)
+all: $(LIT2ELF) $(LIT2ELFD) $(LIBPERFLE) $(LIBCLE) $(LIBLE64)
 
 ######################################################################
 
@@ -159,9 +164,12 @@ $(LIT2ELFD): $(OBJS_DBG) $(EXTRA_DBG_LIBS)
 	$(LINK_DBG) $(LINKOUT)$@ $(OBJS_DBG) $(EXTRA_DBG_LIBS) $(EXTRA_LDFLAGS)
 
 $(LIBPERFLE):
-	$(MAKE) -C $(LIBLE_PATH)
+	$(MAKE) -C $(LIBPERFLE_PATH)
 
 $(LIBCLE):
+	$(MAKE) -C $(LIBCLE_PATH)
+
+$(LIBLE64):
 	$(MAKE) -C $(LIBLE_PATH)
 
 $(OBJS_OPT): | $(OBJDIR_OPT)
@@ -186,6 +194,8 @@ clean_dbg:
 	-@$(RM) $(OBJDIR_DBG)/*.o $(LIT2ELFD)
 
 clean_lib:
-	-$(MAKE) -C $(LIBLE_PATH) clean
+	-@$(MAKE) -C $(LIBPERFLE_PATH) clean
+	-@$(MAKE) -C $(LIBCLE_PATH) clean
+	-@$(MAKE) -C $(LIBLE_PATH) clean
 
 ######################################################################
