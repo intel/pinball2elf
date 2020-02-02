@@ -20,6 +20,7 @@ END_LEGAL */
 #include "lte_utils.h"
 #include "lte_elf.h"
 #include <string>
+#include <set>
 
 enum roi_type_t {
    ROI_TYPE_SNIPER,
@@ -65,7 +66,7 @@ class config_t {
       std::vector<const char*> m_nonopt_vec;
       char const* const* m_nonopt_argv;
       int m_nonopt_argc;
-      std::vector<uint64_t> m_break_points;
+      std::set<uint64_t> m_break_points;
 
    public:
       config_t();

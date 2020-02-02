@@ -16,7 +16,7 @@ csource += callbacks.c
 objects = $(patsubst %.cc, %.o, $(cxxsource)) $(patsubst %.c, %.o, $(csource)) $(patsubst %.s, %.o, $(asmsource))
 
 $(test): $(objects) $(LIBS)
-	$(PINBALL2ELF) -V -d $(test).global.log -s $(test).0.reg -m $(test).text -r $(test).address -b 0x4003f2 -p on_start -x $@ $^
+	$(PINBALL2ELF) -V -d $(test).global.log -m $(test).text -r $(test).address -b 0x4003f2 -b 0x5003f2 -b 0x6003f2 -b 0x7003f2 -p on_start -t on_thread_start -x $@ $^
 
 $(objects):
 %.o: %.c

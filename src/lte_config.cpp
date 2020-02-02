@@ -352,7 +352,7 @@ void config_t::init(int argc, char* argv[])
          uint64_t addr = lte_strtoull(argi[1], &end, 16);
          if(!*end)
          {
-            m_break_points.push_back(addr);
+            m_break_points.insert(addr);
          }
       }
       else if(is_opt(argi[0], "--magic2"))
