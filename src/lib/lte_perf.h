@@ -41,7 +41,7 @@ END_LEGAL */
 #define SIGPEOVFL      SIGPEOVFL_MAX
 
 typedef void* lte_td_t;
-typedef void (*lte_pe_cbk_t)(lte_td_t td, int, siginfo_t*, void*);
+typedef void (*lte_pe_cbk_t)(lte_td_t, int, siginfo_t*, void*);
 
 uint64_t lte_pe_get_num_threads();
 lte_td_t lte_pe_get_thread_desc(uint64_t tnum);
@@ -68,6 +68,8 @@ lte_td_t lte_pe_init_process_sampling(uint64_t tnum, uint64_t icount_period, uin
 lte_td_t lte_pe_set_thread_end(uint64_t tnum, uint64_t icount);
 // returns perf counter file descriptor for non-zero td. "-1" if td is 0.
 int lte_pe_get_perf_fd(lte_td_t td);
+// sets callback to be called on breakpoins
+lte_td_t lte_pe_set_breakpoint_action(uint64_t tnum, lte_pe_cbk_t callback);
 
 // opens file descriptor for performance monitoring using event descriptor attached to td as a group leader; -1 on error
 int lte_pe_open_thread_perf_event(lte_td_t td, uint32_t pe_type, uint64_t pe_config, uint8_t isglobal);

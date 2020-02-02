@@ -111,8 +111,7 @@ class pinball_memimg_t : public lte_memimg_t {
    protected:
       lte_uint32_t m_data_item_size;
 
-   bool load_compressed(const char* fname, 
-    lte_addr_t addr_max);
+      bool load_compressed(const char* fname, lte_addr_t addr_max);
    public:
       pinball_memimg_t(unsigned char arch = ELFCLASS64) : m_data_item_size((arch == ELFCLASS64) ? 8 : 4) {}
 

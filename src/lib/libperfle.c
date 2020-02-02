@@ -123,12 +123,12 @@ lte_td_t lte_pe_get_thread_desc(uint64_t tnum)
 
 int lte_pe_get_perf_fd(lte_td_t td)
 {
-  if(td)
-  {
-    thread_info_t* tinfo = (thread_info_t*)td;
-   return tinfo->fd;
-  }
-  return -1;
+   if(td)
+   {
+      thread_info_t* tinfo = (thread_info_t*)td;
+      return tinfo->fd;
+   }
+   return -1;
 }
 
 uint64_t lte_pe_get_thread_num(lte_td_t td)
@@ -219,7 +219,7 @@ static int lte_pe_alloc_threads_info(uint64_t num_threads)
       if(!s_thread)
          lte_pe_error(EXIT_FAILURE);
       else
-        lte_memset(s_thread, 0, num_threads*sizeof(thread_info_t));
+         lte_memset(s_thread, 0, num_threads*sizeof(thread_info_t));
    }
    s_num_threads = num_threads;
 
@@ -227,26 +227,26 @@ static int lte_pe_alloc_threads_info(uint64_t num_threads)
    thread_info_t* pend = s_thread + num_threads;
    if(p)
    {
-    for(; p != pend; ++p)
-    {
-      if(!p->stack)
+      for(; p != pend; ++p)
       {
-         p->stack = lte_mmap(0, SIGSTKSZ, PROT_READ|PROT_WRITE|PROT_EXEC,MAP_PRIVATE|MAP_ANONYMOUS|MAP_GROWSDOWN, -1, 0);
          if(!p->stack)
-            lte_pe_error(EXIT_FAILURE);
-         p->stack_size = SIGSTKSZ;
+         {
+            p->stack = lte_mmap(0, SIGSTKSZ, PROT_READ|PROT_WRITE|PROT_EXEC,MAP_PRIVATE|MAP_ANONYMOUS|MAP_GROWSDOWN, -1, 0);
+            if(!p->stack)
+               lte_pe_error(EXIT_FAILURE);
+            p->stack_size = SIGSTKSZ;
+         }
+         p->fd = -1;
+         p->icount = 0;
+         p->icount_period = 0;
+         p->icount_max = 0;
+         p->samples = 0;
       }
-      p->fd = -1;
-      p->icount = 0;
-      p->icount_period = 0;
-      p->icount_max = 0;
-      p->samples = 0;
-    }
    }
    else
    {
-    lte_pe_error(EXIT_FAILURE);
-    return 1; //will now execute 
+      lte_pe_error(EXIT_FAILURE);
+      return 1; //will now execute 
    }
    return 0; // success
 }
@@ -347,7 +347,7 @@ static void lte_pe_sighandler_process(int signum, siginfo_t* siginfo, void* ucon
    if(signum == SIGIO)
    {
       if(siginfo->si_code != POLL_IN) // not POLL_HUP for the process case
-        lte_pe_error(EXIT_FAILURE); 
+        lte_pe_error(EXIT_FAILURE);
 
       lte_ioctl(siginfo->si_fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
 
@@ -556,10 +556,10 @@ static lte_td_t lte_pe_set_sampling_cbk_process(uint64_t tnum, int cpu, pid_t pi
    lte_td_t td = NULL;
    if(tnum == 0)
    {
-        fd = lte_pe_open_perf_event(pid, cpu, -1, PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS, icount_period, 1 /*global*/);
+      fd = lte_pe_open_perf_event(pid, cpu, -1, PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS, icount_period, 1 /*global*/);
    }
 
-   tinfo->tid = lte_gettid(); 
+   tinfo->tid = lte_gettid();
    tinfo->icount_period = icount_period;
    tinfo->icount_max = icount_max;
    tinfo->fd = fd;
@@ -662,6 +662,52 @@ lte_td_t lte_pe_init_thread_sampling(uint64_t tnum, uint64_t icount_period, uint
 {
    return lte_pe_set_sampling_cbk(tnum, -1, 0/*lte_gettid()*/, icount_period, icount_max, callback);
 }
+
+static void lte_pe_brkhandler(int signum, siginfo_t* siginfo, void* ucontext)
+{
+   if(signum == SIGTRAP)
+   {
+      thread_info_t* tinfo = lte_pe_get_thread_info_by_tid(lte_gettid());
+      if(tinfo && tinfo->callback)
+         tinfo->callback(tinfo, signum, siginfo, ucontext);
+   }
+}
+
+lte_td_t lte_pe_set_breakpoint_action(uint64_t tnum, lte_pe_cbk_t callback)
+{
+   thread_info_t* tinfo = lte_pe_get_thread_info_by_tnum(tnum);
+
+   if(!tinfo)
+      return NULL;
+
+   stack_t ss = {
+      .ss_sp = tinfo->stack,
+      .ss_flags = 0,
+      .ss_size = tinfo->stack_size
+   };
+   int sa_onstack = 0;
+   if(ss.ss_sp && !lte_sigaltstack(&ss, 0))
+      sa_onstack = SA_ONSTACK;
+
+   tinfo->tid = lte_gettid();
+   tinfo->callback = callback;
+
+   struct sigaction sa;
+   lte_memset(&sa, 0, sizeof(sa));
+   sa.sa_sigaction = lte_pe_brkhandler;
+   sa.sa_flags = SA_SIGINFO | sa_onstack;
+
+   #ifdef LIBPERFLE_SAMASK
+   lte_sigaddset(&s_sa_mask, SIGTRAP);
+   sa.sa_mask = s_sa_mask;
+   #endif
+
+   if(lte_sigaction(SIGTRAP, &sa, NULL) < 0)
+      lte_pe_error(EXIT_FAILURE);
+
+   return tinfo;
+}
+
 
 int lte_pe_open_thread_perf_event(lte_td_t td, uint32_t pe_type, uint64_t pe_config, uint8_t isglobal)
 {

@@ -65,6 +65,7 @@ class config_t {
       std::vector<const char*> m_nonopt_vec;
       char const* const* m_nonopt_argv;
       int m_nonopt_argc;
+      std::vector<uint64_t> m_break_points;
 
    public:
       config_t();
@@ -187,6 +188,11 @@ class config_t {
       bool no_modify_ldt(unsigned char arch_mode) const;
 
       lte_addr_t get_user_space_limit(unsigned char arch_mode) const;
+
+      auto& get_break_points()
+      {
+         return m_break_points;
+      }
 };
 
 inline config_t& get_config()

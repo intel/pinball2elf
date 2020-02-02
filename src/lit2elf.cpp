@@ -39,7 +39,7 @@ static char CbTextSegName[] = ".cbtext";
 
 typedef elf_t::symtab::index_type lte_symtab_index_t;
 
-static void litelfIsAddressInImage(lte_memimg_t& memimg, lte_addr_t va, const char* vatype = "address", bool warning = false)
+static bool litelfIsAddressInImage(lte_memimg_t& memimg, lte_addr_t va, const char* vatype = "address", bool warning = false)
 {
    lte_mempage_t* pg = memimg.get_page(va);
 
@@ -48,6 +48,7 @@ static void litelfIsAddressInImage(lte_memimg_t& memimg, lte_addr_t va, const ch
       if(get_config().is_verbose())
          fprintf(stdout, "%s %" PRIx64 " found in %s [%" PRIx64 " - %" PRIx64 "]\n",
                  vatype, va, get_config().get_mem_image_file_name(), pg->va, pg->va + pg->region_size);
+      return true;
    }
    else
    {
@@ -56,6 +57,7 @@ static void litelfIsAddressInImage(lte_memimg_t& memimg, lte_addr_t va, const ch
          LTE_WARN(fmt_add_not_found, vatype, va, get_config().get_mem_image_file_name());
       else
          LTE_ERRX(fmt_add_not_found, vatype, va, get_config().get_mem_image_file_name());
+      return false;
    }
 }
 
@@ -803,6 +805,16 @@ int main(int argc, char** argv)
       entry = NULL;
       entry_va = arch_state.get_thread_state(0).rip;
       entry_data_va = 0;
+   }
+
+   // Insert breakpoints (INT3) 
+   for(auto addr : get_config().get_break_points())
+   {
+      if(litelfIsAddressInImage(img, addr, "breakpoint address", true))
+      {
+         lte_uint8_t int3 = 0xcc;
+         img.memcopy(addr, &int3, 1);
+      }
    }
 
    /**

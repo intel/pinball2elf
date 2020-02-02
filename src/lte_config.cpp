@@ -92,6 +92,7 @@ void config_t::help_msg(const char* exe_name) const
              << "  -p FUNC, --process-cbk FUNC      name of process start callback\n"
              << "  -e FUNC, --process-exit-cbk FUNC name of process exit callback\n"
              << "  -t FUNC, --thread-cbk FUNC       name of thread start callback\n"
+             << "  -b ADDR                          insert break at address ADDR"
              << "  --cbk-stack-size NUM             callback stack size\n"
              << "  --[no-]stack-remap               enable(DEFAULT)/disable stack related pages remapping\n"
              << "  --[no-]startup                   enable(DEFAULT)/disable the startup code injection\n" 
@@ -343,6 +344,16 @@ void config_t::init(int argc, char* argv[])
          char* end;
          optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
          m_remap_limit = lte_strtoull(argi[1], &end, 16);
+      }
+      else if(is_opt(argi[0], "-b"))
+      {
+         char* end;
+         optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
+         uint64_t addr = lte_strtoull(argi[1], &end, 16);
+         if(!*end)
+         {
+            m_break_points.push_back(addr);
+         }
       }
       else if(is_opt(argi[0], "--magic2"))
       {
