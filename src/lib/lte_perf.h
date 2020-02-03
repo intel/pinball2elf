@@ -20,12 +20,7 @@ END_LEGAL */
 # define _GNU_SOURCE 1
 #endif
 
-#include <stdint.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <linux/perf_event.h>
+#include <ucontext.h>
 #include "lte_lc.h"
 
 #define __lte_data    __attribute__ ((section (".data")))

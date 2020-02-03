@@ -1,6 +1,4 @@
 #include "lte_perf.h"
-#include <ucontext.h>
-
 
 __lte_static char s_pid[] = " pid: ";
 __lte_static char s_tid[] = " tid: ";
@@ -13,7 +11,7 @@ __lte_static char sep[] = "------------------------------------------------\n";
 static void on_brk(lte_td_t td, int signum, siginfo_t* info, void* ucontext)
 {
    ucontext_t* context = (ucontext_t*)ucontext;
-   uint64_t rip = context->uc_mcontext.gregs[16]-1;//REG_RIP
+   uint64_t rip = context->uc_mcontext.gregs[REG_RIP]-1;
 
    pid_t pid = lte_getpid();
    pid_t tid = lte_gettid();
