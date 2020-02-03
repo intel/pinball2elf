@@ -1,3 +1,4 @@
+*.o
 src/obj
 src/lib/*.o
 src/lib/*.a

@@ -1,15 +1,5 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/wait.h>
-#include <linux/futex.h>
-#include <sys/time.h>
 #include "lte_perf.h"
-#include <sys/mman.h>
-#include <sched.h>
+#include <ucontext.h>
 
 
 __lte_static char s_pid[] = " pid: ";

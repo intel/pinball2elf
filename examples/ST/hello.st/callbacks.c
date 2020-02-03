@@ -1,15 +1,5 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/wait.h>
-#include <linux/futex.h>
-#include <sys/time.h>
 #include "lte_perf.h"
-#include <sys/mman.h>
-#include <sched.h>
+#include <ucontext.h>
 
 
 __lte_static char s_pid[] = " pid: ";
@@ -23,7 +13,7 @@ __lte_static char sep[] = "------------------------------------------------\n";
 static void on_brk(lte_td_t td, int signum, siginfo_t* info, void* ucontext)
 {
    ucontext_t* context = (ucontext_t*)ucontext;
-   uint64_t rip = context->uc_mcontext.gregs[16]-1;//REG_RIP];
+   uint64_t rip = context->uc_mcontext.gregs[16]-1;//REG_RIP
 
    pid_t pid = lte_getpid();
    pid_t tid = lte_gettid();
