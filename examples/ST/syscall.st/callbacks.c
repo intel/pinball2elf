@@ -32,6 +32,17 @@ void on_syscall(ucontext_t* context)
 {
    __lte_static char str_hello[] = "Hello from syscall handler!\n";
 
+
+   // x86-64 syscall ABI:
+   //
+   // system call # passed through rax
+   //
+   // arg1  arg2  arg3  arg4  arg5  arg6
+   // ──────────────────────────────────
+   // rdi   rsi   rdx   r10   r8    r9
+   //
+   // ret vals:  rax or rax/rdx
+
    // Obtain syscall arguments
    int fd = context->uc_mcontext.gregs[REG_RDI];
    const void* buf = (const void*)context->uc_mcontext.gregs[REG_RSI];
