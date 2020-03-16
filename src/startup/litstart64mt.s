@@ -62,7 +62,7 @@
 .set SYS_mmap,9
 .set SYS_munmap,11
 .set SYS_clone,56
-.set SYS_exit,60
+.set SYS_exit_group,231
 .set SYS_wait4,61
 .set SYS_futex,202
 
@@ -213,7 +213,7 @@ pbs.create_thread:
     jmp       pbs.create_thread
 pbs.exit:
     xor       %edi,%edi
-    mov       $SYS_exit,%eax
+    mov       $SYS_exit_group,%eax
     syscall
 ##############################################################################
 

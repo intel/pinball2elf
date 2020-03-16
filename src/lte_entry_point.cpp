@@ -171,7 +171,7 @@ static lte_uint8_t s_entry64[] = {
  /*150*/ 0xeb, 0xdb,                                    //jmp    <pbs.create_thread>
 //<pbs.exit>:
  /*152*/ 0x31, 0xff,                                    //xor    %edi,%edi
- /*154*/ 0xb8, 0x3c, 0x00, 0x00, 0x00,                  //mov    $0x3c,%eax
+ /*154*/ 0xb8, 0xe7, 0x00, 0x00, 0x00,                  //mov    $0xe7,%eax
  /*159*/ 0x0f, 0x05,                                    //syscall
 //<pbs.parse_args>:
  /*15b*/ 0x4c, 0x8b, 0x74, 0x24, 0x08,                  //mov    0x8(%rsp),%r14
