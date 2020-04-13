@@ -19,6 +19,7 @@ END_LEGAL */
 #include "lte_x86_state.h"
 #include "lte_memimg.h"
 #include "lte_string.h"
+#include "lte_relocation.h"
 #include <stdio.h>
 #include <vector>
 #include <string>
@@ -141,6 +142,43 @@ class pinball_mem_layout_t {
 
       iterator begin() { return m_regions.begin(); }
       iterator end() { return m_regions.end(); }
+
+      void print();
+};
+
+class pinball_rel_t {
+   public:
+      struct rel_info_t : text_rinfo_t {
+         lte_addr_t addr8 {0};
+         lte_addr_t tolerance8 {0};
+         lte_addr_t addr32 {0};
+         lte_addr_t tolerance32 {0};
+         lte_addr_t cb_addr {0};
+         std::string cb_name;
+         struct {
+            lte_uint32_t addr8:1;
+            lte_uint32_t addr32:1;
+            lte_uint32_t safe8:1;
+            lte_uint32_t safe32:1;
+            lte_uint32_t mem:1;
+            lte_uint32_t nonrelocatable:1;
+            lte_uint32_t cb_addr:1;
+         } flags {0, 0, 0, 0, 0, 0, 0};
+
+         rel_info_t() = default;
+      };
+   private:
+      std::map<lte_addr_t, rel_info_t> m_rinfo;
+
+   public:
+      pinball_rel_t() {}
+
+      bool load(const char* fname);
+
+      auto begin() { return m_rinfo.begin(); }
+      auto end() { return m_rinfo.end(); }
+
+      void insert(lte_addr_t addr, const std::string& cb_name, lte_uint64_t inst_info);
 
       void print();
 };

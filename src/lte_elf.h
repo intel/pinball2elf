@@ -20,6 +20,7 @@ END_LEGAL */
 #include "lte_portability.h"
 #include "lte_syself.h"
 #include "lte_strtab.h"
+#include "lte_mem.h"
 #include <vector>
 #include <map>
 
@@ -30,7 +31,7 @@ END_LEGAL */
  * LTE_ELF_MAX_PHDR_SIZE defines maximal total size of program headers in ELF
  */
 const lte_uint32_t ELF_MAX_PHDR_SIZE = 0x10000;
-const lte_uint32_t ELF_PAGE_SIZE = 0x1000;
+const lte_uint32_t ELF_PAGE_SIZE = mem::page::SIZE;
 
 extern unsigned char ELF_ST_INFO(Elf_Class_t e_class, int bind, int type);
 extern unsigned char ELF_ST_BIND(Elf_Class_t e_class, int val);
@@ -66,7 +67,7 @@ public:
 
 class elf_mempage_t : public elf_data_t {
    public:
-      Elf_Byte_t data[4096];
+      Elf_Byte_t data[ELF_PAGE_SIZE];
 
       const Elf_Byte_t* get_data() const { return data;  }
       Elf64_Xword       get_size() const { return sizeof(data); }
@@ -79,64 +80,6 @@ class elf_t {
             strtab(){}
             const Elf_Byte_t* get_data() const { return (const Elf_Byte_t*)table_ptr(); }
             Elf64_Xword       get_size() const { return table_size(); }
-      };
-
-      class section {
-         protected:
-            friend class elf_t;
-            template<class T1, class T2> static void set_item(T1& dst, const T2& src) { dst = (T1)src; }
-         protected:
-            elf_t* m_elf;
-            Elf64_Section m_sh_index;
-            elf_memdata_t m_data;
-         public:
-            section(elf_t* elf, Elf64_Section index);
-            virtual ~section(){}
-
-            Elf64_Section get_index() const
-            {
-               return m_sh_index;
-            }
-            const char* get_name() const
-            {
-               LTE_ASSERT(m_elf != NULL);
-               return m_elf->shstrtab()[0] + get_sh_name();//[m_sh_index];
-            }
-            void set_name(const char* name)
-            {
-               LTE_ASSERT(m_elf != NULL);
-               m_elf->shstrtab().set(m_elf->shstrtab().find(get_sh_name()), name);
-            }
-            const elf_data_t* get_data() const { return &m_data; }
-            elf_data_t* get_data() { return &m_data; }
-            void set_data(elf_data_t* data);
-            void set_data(const Elf_Byte_t* data, Elf64_Xword size);
-
-            virtual const void* get_shdr() const = 0;
-            virtual Elf64_Half get_shdr_size() const = 0;
-
-            virtual Elf64_Word get_sh_name() const = 0;
-            virtual void set_sh_name(Elf64_Word name) = 0;
-            virtual Elf64_Word get_sh_type() const = 0;
-            virtual void set_sh_type(Elf64_Word type) = 0;
-            virtual Elf64_Xword get_sh_flags() const = 0;
-            virtual void set_sh_flags(Elf64_Xword flags) = 0;
-            virtual Elf64_Addr get_sh_addr() const = 0;
-            virtual void set_sh_addr(Elf64_Addr addr) = 0;
-            virtual Elf64_Off get_sh_offset() const = 0;
-            virtual void set_sh_offset(Elf64_Off offset) = 0;
-            virtual Elf64_Xword get_sh_size() const = 0;
-            virtual void set_sh_size(Elf64_Xword size) = 0;
-            virtual Elf64_Word get_sh_link() const = 0;
-            virtual void set_sh_link(Elf64_Word link) = 0;
-            virtual Elf64_Word get_sh_info() const = 0;
-            virtual void set_sh_info(Elf64_Word info) = 0;
-            virtual Elf64_Xword get_sh_addralign() const = 0;
-            virtual void set_sh_addralign(Elf64_Xword addralign) = 0;
-            virtual Elf64_Xword get_sh_entsize() const = 0;
-            virtual void set_sh_entsize(Elf64_Xword entsize) = 0;
-
-            Elf64_Xword set_sh_size();
       };
 
       class datatab : public elf_data_t {
@@ -262,6 +205,68 @@ class elf_t {
                set_r_info(index, sym, type);
                set_r_addend(index, addend);
             }
+      };
+
+      class section {
+         protected:
+            friend class elf_t;
+            template<class T1, class T2> static void set_item(T1& dst, const T2& src) { dst = (T1)src; }
+         protected:
+            elf_t* m_elf;
+            Elf64_Section m_sh_index;
+            elf_memdata_t m_data;
+            relatab* m_relatab = { nullptr };
+         public:
+            section(elf_t* elf, Elf64_Section index);
+            virtual ~section(){ if(m_relatab) delete m_relatab; }
+
+            Elf64_Section get_index() const
+            {
+               return m_sh_index;
+            }
+            const char* get_name() const
+            {
+               LTE_ASSERT(m_elf != NULL);
+               return m_elf->shstrtab()[0] + get_sh_name();//[m_sh_index];
+            }
+            void set_name(const char* name)
+            {
+               LTE_ASSERT(m_elf != NULL);
+               m_elf->shstrtab().set(m_elf->shstrtab().find(get_sh_name()), name);
+            }
+            const elf_data_t* get_data() const { return &m_data; }
+            elf_data_t* get_data() { return &m_data; }
+            void set_data(elf_data_t* data);
+            void set_data(const Elf_Byte_t* data, Elf64_Xword size);
+
+            virtual const void* get_shdr() const = 0;
+            virtual Elf64_Half get_shdr_size() const = 0;
+
+            relatab* get_relatab() { return m_relatab; }
+            void add_relatab_entry(Elf64_Addr offset, Elf32_Word sym, Elf32_Word type, Elf64_Sxword addend);
+
+            virtual Elf64_Word get_sh_name() const = 0;
+            virtual void set_sh_name(Elf64_Word name) = 0;
+            virtual Elf64_Word get_sh_type() const = 0;
+            virtual void set_sh_type(Elf64_Word type) = 0;
+            virtual Elf64_Xword get_sh_flags() const = 0;
+            virtual void set_sh_flags(Elf64_Xword flags) = 0;
+            virtual Elf64_Addr get_sh_addr() const = 0;
+            virtual void set_sh_addr(Elf64_Addr addr) = 0;
+            virtual Elf64_Off get_sh_offset() const = 0;
+            virtual void set_sh_offset(Elf64_Off offset) = 0;
+            virtual Elf64_Xword get_sh_size() const = 0;
+            virtual void set_sh_size(Elf64_Xword size) = 0;
+            virtual Elf64_Word get_sh_link() const = 0;
+            virtual void set_sh_link(Elf64_Word link) = 0;
+            virtual Elf64_Word get_sh_info() const = 0;
+            virtual void set_sh_info(Elf64_Word info) = 0;
+            virtual Elf64_Xword get_sh_addralign() const = 0;
+            virtual void set_sh_addralign(Elf64_Xword addralign) = 0;
+            virtual Elf64_Xword get_sh_entsize() const = 0;
+            virtual void set_sh_entsize(Elf64_Xword entsize) = 0;
+
+            Elf64_Xword set_sh_size();
       };
 
    protected:

@@ -35,29 +35,90 @@ END_LEGAL */
 lte_mempage_t::lte_mempage_t()
 {
    region_next = NULL;
-   region_size = LTE_PAGE_SIZE;
+   region_size = ELF_PAGE_SIZE;
    va = 0;
    pa = 0;
-   offs_start = LTE_PAGE_SIZE;
+   offs_start = ELF_PAGE_SIZE;
    offs_end = 0;
-   memset(data, 0x00, sizeof(data));
+   memset(data, 0xcc, sizeof(data));
+}
+
+lte_uint32_t lte_mempage_t::get(lte_uint8_t* p, lte_uint32_t offs, lte_uint32_t size)
+{
+   if((offs >= get_size()) || (offs + size <= offs_start))
+   {
+      memset(p, 0, size);
+      return 0;
+   }
+
+   lte_uint32_t bytes_to_copy = size;
+
+   if(offs < offs_start)
+   {
+      bytes_to_copy -= (offs_start - offs);
+      offs = offs_start;
+   }
+
+   if(offs + bytes_to_copy > get_size())
+   {
+      bytes_to_copy = get_size() - offs;
+   }
+
+   memcpy(p, data + offs, bytes_to_copy);
+   if(bytes_to_copy < size)
+   {
+      memset(p + bytes_to_copy, 0, size - bytes_to_copy);
+   }
+   
+   return bytes_to_copy;
 }
 
 lte_uint32_t lte_mempage_t::set(lte_uint32_t offs, const lte_uint8_t* p, lte_uint32_t size)
 {
-   lte_uint32_t size_not_copied = (offs + size > sizeof(data)) ? (sizeof(data) - offs) : 0;
+   if(offs >= get_size())
+      return size;
 
-   memcpy(data + offs, p, size -= size_not_copied);
+   lte_uint32_t bytes_to_copy = (offs + size > get_size()) ? (get_size() - offs) : size;
+
+   memcpy(data + offs, p, bytes_to_copy);
 
    if(offs_start > offs)
       offs_start = offs;
 
-   offs += size;
+   offs += bytes_to_copy;
 
    if(offs_end < offs)
       offs_end = offs;
 
-   return size_not_copied;
+   return (size - bytes_to_copy);
+}
+
+void lte_mempage_t::reserve(lte_uint32_t offs, lte_uint32_t length)
+{
+   if(offs < get_size())
+   {
+      if(offs_start > offs)
+         offs_start = offs;
+      offs += length;
+      offs_end = (offs >= get_size()) ? get_size() : offs;
+   }
+}
+
+bool lte_mempage_t::is_free(lte_uint32_t offs, lte_uint32_t length)
+{
+   return (offs < offs_start && length <= (offs_start - offs)) ||
+          (offs >= offs_end && offs < get_size() && length <= (get_size() - offs));
+}
+
+std::pair<lte_uint32_t,bool> lte_mempage_t::find_free_block(lte_uint32_t length)
+{
+   if(empty())
+      return {0, true};
+   if(length <= offs_start)
+      return { offs_start - length, true };
+   if(length <= get_size() - offs_end)   
+      return { offs_end, true };
+   return {0, false};
 }
 
 static bool pagecmp(lte_mempage_t* p1, lte_mempage_t* p2)
@@ -89,7 +150,7 @@ static bool pagecmp(lte_mempage_t* p1, lte_mempage_t* p2)
 
 static __LTE_INLINE bool adjacent_pages(lte_mempage_t& pg1, lte_mempage_t& pg2) 
 {
-   return (pg1.va - pg2.va == LTE_PAGE_SIZE);
+   return (pg1.va - pg2.va == ELF_PAGE_SIZE);
 }
 
 static __LTE_INLINE bool same_type_pages(lte_mempage_t& pg1, lte_mempage_t& pg2, Elf64_Xword flags) 
@@ -104,18 +165,18 @@ static __LTE_INLINE bool can_combine_pages(lte_mempage_t& pg1, lte_mempage_t& pg
 
 void lte_memimg_t::add_missing_page(lte_addr_t missing_page_addr, lte_uint8_t *page_content)
 {
-  lte_uint32_t missing_page_offs = 0;
-  lte_mempage_t* missing_page = NULL;
-  missing_page_offs = missing_page_addr & (lte_addr_t)(page_size-1);
-  LTE_ERRAX(missing_page_offs, "Non-zero page_offset 0x%x for missing_page_addr 0x%x", missing_page_offs, missing_page_addr);
-  missing_page_addr &= ~(lte_addr_t)(page_size-1);
+   lte_uint32_t missing_page_offs = 0;
+   lte_mempage_t* missing_page = NULL;
+   missing_page_offs = missing_page_addr & (lte_addr_t)(page_size-1);
+   LTE_ERRAX(missing_page_offs, "Non-zero page_offset 0x%x for missing_page_addr 0x%x", missing_page_offs, missing_page_addr);
+   missing_page_addr &= ~(lte_addr_t)(page_size-1);
   
-  missing_page = &m_mem[missing_page_addr];
-  // std::cout << " Adding missing page " << std::hex << missing_page_addr << std::endl;
-  missing_page->va = missing_page_addr;
-  missing_page->flags = (SHF_WRITE|SHF_EXECINSTR|SHF_ALLOC);
-  lte_uint32_t rest = missing_page->set(missing_page_offs, page_content, page_size);
-  LTE_ERRAX(rest, "Error copying text page at 0x%x", missing_page_addr);
+   missing_page = &m_mem[missing_page_addr];
+   // std::cout << " Adding missing page " << std::hex << missing_page_addr << std::endl;
+   missing_page->va = missing_page_addr;
+   missing_page->flags = (SHF_WRITE|SHF_EXECINSTR|SHF_ALLOC);
+   lte_uint32_t rest = missing_page->set(missing_page_offs, page_content, page_size);
+   LTE_ERRAX(rest, "Error copying text page at 0x%x", missing_page_addr);
 }
 
 lte_uint64_t lte_memimg_t::compact(lte_uint64_t regions_max)
@@ -135,9 +196,9 @@ lte_uint64_t lte_memimg_t::compact(lte_uint64_t regions_max)
    //        0x2aaac4e43000 0x2aaac4e4a000 data 0
    //        0x2aaac4e4b000 0x2aaac4e97000 text 0
    // The loop below discovers such holes and plugs them by adding
-   //  the missing page. This causes all mmap() offsets in the generated
-   //   ELFie to be contiguous. Without that, the mmap() offsets were drifting
-   //    away causing wrong memory to be restored.
+   // the missing page. This causes all mmap() offsets in the generated
+   // ELFie to be contiguous. Without that, the mmap() offsets were drifting
+   // away causing wrong memory to be restored.
    for(std::map<lte_addr_t, lte_mempage_t>::iterator pg_prev = pg++; pg != m_mem.end(); ++pg)
    {
       if(pg->first == pg_prev->first+0x2000)
@@ -174,14 +235,14 @@ lte_uint64_t lte_memimg_t::compact(lte_uint64_t regions_max)
 
    pg = m_mem.begin();
    lte_mempage_t* head = &pg->second;
-   pg->second.region_size = LTE_PAGE_SIZE;
+   pg->second.region_size = ELF_PAGE_SIZE;
    pg->second.region_next = NULL;
    pg->second.next = NULL;
    pg->second.head = head;
 
    for(std::map<lte_addr_t, lte_mempage_t>::iterator pg_prev = pg++; pg != m_mem.end(); ++pg)
    {
-      pg->second.region_size = LTE_PAGE_SIZE;
+      pg->second.region_size = ELF_PAGE_SIZE;
       pg->second.region_next = NULL;
       pg->second.next = NULL;
 
@@ -189,9 +250,9 @@ lte_uint64_t lte_memimg_t::compact(lte_uint64_t regions_max)
       {
          pg_prev->second.next = &pg->second;
 
-         offs += LTE_PAGE_SIZE;
+         offs += ELF_PAGE_SIZE;
          pg->second.offs = offs;
-         head->region_size += LTE_PAGE_SIZE;
+         head->region_size += ELF_PAGE_SIZE;
       }
       else
       {
@@ -249,10 +310,10 @@ lte_uint64_t lte_memimg_t::compact(lte_uint64_t regions_max)
                p->offs = offs = p->va - head->va;
                p->head = head;
                p->region_next = NULL;
-               p->region_size = LTE_PAGE_SIZE;
+               p->region_size = ELF_PAGE_SIZE;
             }
             head->region_next = region_next;
-            head->region_size = offs + LTE_PAGE_SIZE;
+            head->region_size = offs + ELF_PAGE_SIZE;
          }
       }
    }
@@ -262,16 +323,142 @@ lte_uint64_t lte_memimg_t::compact(lte_uint64_t regions_max)
 
 lte_mempage_t* lte_memimg_t::get_page(lte_addr_t addr)
 {
-   addr &=~(lte_addr_t)(LTE_PAGE_SIZE-1);
-   return m_mem.count(addr) ? &m_mem[addr] : NULL;
+   auto pg = m_mem.find(addr & ~(lte_addr_t)(ELF_PAGE_SIZE-1));
+   return (pg != m_mem.end()) ? &pg->second : nullptr;
 }
 
-lte_addr_t lte_memimg_t::find_free_block(lte_uint64_t size, lte_uint32_t shflags)
+std::pair<lte_addr_t, bool> lte_memimg_t::find_free_block(lte_addr_t addr, lte_addr_t addr_lo, lte_addr_t addr_hi, lte_size_t size, lte_uint32_t shflags)
+{
+   mem::segment<lte_addr_t> r(addr_lo, addr_hi);
+
+   if(!r.in_range(addr))
+      addr = addr_lo + ((addr_hi - addr_lo) >> 1);
+
+   lte_addr_t addrf = addr;
+   lte_addr_t addrr = addr;
+
+   auto fi = m_mem.lower_bound(mem::page::base(addr));
+   if(fi == m_mem.end())
+   {
+      if(r.in_range(addr, size))
+         return { addr, true };
+   }
+   else
+   {
+      // TODO: if fi->second is empty we need to find non empty one 
+     
+      if(r.le(addr + size, fi->second.data_addr()) && r.in_range(addr, size))
+         return { addr, true };
+
+      if(addr >= fi->second.data_end_addr())
+      {
+         addrr = fi->second.data_addr();
+      }
+      else if(addr >= fi->second.data_addr())
+      {
+         addrr = fi->second.data_addr();
+         addrf = fi->second.data_end_addr();
+      }
+      else
+      {
+         addrf = fi->second.data_end_addr();
+      }
+   }
+
+   auto ri = --std::make_reverse_iterator(fi);
+   auto fi_prev = fi;
+   auto ri_prev = ri;
+
+   for(int flags = 3; flags;)
+   {
+      if(flags & 2)
+      {
+         ++fi;
+
+         lte_addr_t block_end = fi->second.data_addr();
+         lte_addr_t block_start = fi_prev->second.data_end_addr();
+         lte_size_t block_size = block_end - block_start;
+
+         if(fi == m_mem.end())
+         //if(++fi == m_mem.end())
+         {
+            if(r.in_range(addrf, size))
+               return { addrf, true };
+            else
+               flags &= 1;               
+         }
+         else if(block_size >= size)
+         //else if(fi->second.data_addr() - fi_prev->second.data_end_addr() >= size)
+         {
+            if(fi->second.data_addr() - addrf < size)
+               addrf = fi_prev->second.data_end_addr();
+            if(r.in_range(addrf, size))
+               return { addrf, true };
+            flags &= 1;
+         }
+         else
+         {
+            if(!fi->second.empty())
+            {
+               addrf = fi->second.data_end_addr();
+               fi_prev = fi;
+            }
+            if(!r.in_range(addrf, size))
+            {
+               flags &= 1;
+            }
+         }
+      }
+
+      if(flags & 1)
+      {
+         ++ri;
+
+         lte_addr_t block_end = ri_prev->second.data_addr();
+         lte_addr_t block_start = ri->second.data_end_addr();
+         lte_size_t block_size = block_end - block_start;
+
+         if(ri == m_mem.rend())
+         //if(++ri == m_mem.rend())
+         {
+            if(r.in_range(addrr, size))
+               return { addrr, true };
+            else
+               flags &= 2;               
+         }
+         else if(block_size >= size)
+         //else if(ri_prev->second.data_addr() - ri->second.data_end_addr() >= size)
+         {
+            if(ri_prev->second.data_addr() - addrr < size)
+               addrr = ri_prev->second.data_addr() - size;
+            if(r.in_range(addrr, size))
+               return { addrr, true };
+            flags &= 2;
+         }
+         else
+         {
+            if(!ri->second.empty())
+            {
+               addrr = ri->second.data_addr();
+               ri_prev = ri;
+            }
+            if(!r.in_range(addr, size))
+            {
+               flags &= 2;
+            }
+         }
+      }
+   }
+
+   return { 0, false };
+}
+
+lte_addr_t lte_memimg_t::find_free_block(lte_size_t size, lte_uint32_t shflags)
 {
    if(m_mem.size())
    {
       std::map<lte_addr_t, lte_mempage_t>::iterator it = m_mem.begin();
-      lte_addr_t addr = it->first + LTE_PAGE_SIZE;
+      lte_addr_t addr = it->first + ELF_PAGE_SIZE;
       lte_addr_t addr_end = addr;
 
       for (++it; it != m_mem.end(); ++it)
@@ -281,32 +468,37 @@ lte_addr_t lte_memimg_t::find_free_block(lte_uint64_t size, lte_uint32_t shflags
          if(addr_end - addr >= size)
             return addr;
 
-         addr = addr_end + LTE_PAGE_SIZE;
+         addr = addr_end + ELF_PAGE_SIZE;
       }
       return addr;
    }
    return 0;
 }
 
-lte_addr_t lte_memimg_t::insert(const lte_uint8_t* p, lte_uint64_t size, lte_uint32_t shflags)
+lte_addr_t lte_memimg_t::insert(const lte_uint8_t* p, lte_uint64_t size, lte_uint32_t shflags, bool reserve)
 {
    lte_addr_t addr_start = find_free_block(size, shflags);
    lte_addr_t addr_end = addr_start + size;
-   lte_addr_t addr_last_pg = addr_end & ~(lte_addr_t)(LTE_PAGE_SIZE-1);
+   lte_addr_t addr_last_pg = addr_end & ~(lte_addr_t)(ELF_PAGE_SIZE-1);
 
    if(!addr_start)
       return 0;
 
    lte_addr_t addr = addr_start;
 
-   for(; addr < addr_last_pg; addr += LTE_PAGE_SIZE)
+   for(; addr < addr_last_pg; addr += ELF_PAGE_SIZE)
    {
       lte_mempage_t& page = m_mem[addr];
       if(p)
       {
-         page.set(0, p, LTE_PAGE_SIZE);
-         p += LTE_PAGE_SIZE;
+         page.set(0, p, ELF_PAGE_SIZE);
+         p += ELF_PAGE_SIZE;
       }
+      else if(reserve)
+      {
+         page.reserve(0, ELF_PAGE_SIZE);      
+      }
+      
       page.flags = shflags;
       page.va = addr;
    }
@@ -318,10 +510,70 @@ lte_addr_t lte_memimg_t::insert(const lte_uint8_t* p, lte_uint64_t size, lte_uin
       {
          page.set(0, p, addr_end - addr_last_pg);
       }
+      else if(reserve)
+      {
+         page.reserve(0, addr_end - addr_last_pg);      
+      }
       page.flags = shflags;
       page.va = addr;
    }
    return addr_start;
+}
+
+static auto insert_page(std::map<lte_addr_t, lte_mempage_t>& m, lte_addr_t addr, lte_uint32_t shflags)
+{
+   auto rc = m.emplace(std::piecewise_construct, std::forward_as_tuple(addr), std::forward_as_tuple());
+   if(rc.second)
+   {
+      rc.first->second.flags = shflags;
+      rc.first->second.va = addr;
+   }
+   else
+   {
+      rc.first->second.flags |= shflags;
+   }
+   return &rc.first->second;
+}
+
+bool lte_memimg_t::insert(lte_addr_t addr, const lte_uint8_t* p, lte_uint64_t size, lte_uint32_t shflags, bool reserve)
+{
+   if(!size || !p)
+      return false;
+
+   lte_addr_t addr_start = addr;
+   lte_addr_t addr_end = addr_start + size;
+   lte_addr_t addr_page = addr_start & ~(lte_addr_t)(ELF_PAGE_SIZE-1);
+   lte_addr_t addr_page_last = addr_end & ~(lte_addr_t)(ELF_PAGE_SIZE-1);
+
+   if(addr_page < addr_start)
+   {
+      auto pg = insert_page(m_mem, addr_page, shflags);
+      lte_uint64_t offs = addr_start & (lte_addr_t)(ELF_PAGE_SIZE-1);
+
+      if(offs + size < ELF_PAGE_SIZE)
+      {
+         pg->set(addr_start - addr_page, p, size);
+         return true;
+      }
+
+      pg->set(addr_start - addr_page, p, ELF_PAGE_SIZE - offs);
+      p += ELF_PAGE_SIZE - offs;
+      addr_page += ELF_PAGE_SIZE;
+   }
+
+   for(; addr_page < addr_page_last; addr_page += ELF_PAGE_SIZE, p += ELF_PAGE_SIZE)
+   {
+      auto pg = insert_page(m_mem, addr_page, shflags);
+      pg->set(0, p, ELF_PAGE_SIZE);
+   }
+
+   if(addr_page < addr_end)
+   {
+      auto pg = insert_page(m_mem, addr_page, shflags);
+      pg->set(0, p, addr_end - addr_page);
+   }
+
+   return true;
 }
 
 lte_uint64_t lte_memimg_t::memcopy(lte_addr_t addr, const lte_uint8_t* p, lte_uint64_t size)
@@ -331,50 +583,144 @@ lte_uint64_t lte_memimg_t::memcopy(lte_addr_t addr, const lte_uint8_t* p, lte_ui
 
    lte_addr_t addr_start = addr;
    lte_addr_t addr_end = addr_start + size;
-   lte_addr_t addr_page = addr_start & ~(lte_addr_t)(LTE_PAGE_SIZE-1);
-   lte_addr_t addr_page_last = addr_end & ~(lte_addr_t)(LTE_PAGE_SIZE-1);
+   lte_addr_t addr_page = addr_start & ~(lte_addr_t)(ELF_PAGE_SIZE-1);
+   lte_addr_t addr_page_last = addr_end & ~(lte_addr_t)(ELF_PAGE_SIZE-1);
 
    if(addr_page < addr_start)
    {
-      if(!m_mem.count(addr_page))
+      auto pg = m_mem.find(addr_page);
+      if(pg == m_mem.end())
          return 0;
 
-      lte_uint64_t offs = addr_start & (lte_addr_t)(LTE_PAGE_SIZE-1);
+      lte_uint64_t offs = addr_start & (lte_addr_t)(ELF_PAGE_SIZE-1);
 
-      if(offs + size < LTE_PAGE_SIZE)
+      if(offs + size < ELF_PAGE_SIZE)
       {
-         m_mem[addr_page].set(addr_start - addr_page, p, size);
+         pg->second.set(addr_start - addr_page, p, size);
          return size;
       }
 
-      m_mem[addr_page].set(addr_start - addr_page, p, LTE_PAGE_SIZE - offs);
-      p += LTE_PAGE_SIZE - offs;
+      pg->second.set(addr_start - addr_page, p, ELF_PAGE_SIZE - offs);
+      p += ELF_PAGE_SIZE - offs;
+      addr_page += ELF_PAGE_SIZE;
    }
 
-   for(; addr_page < addr_page_last; addr_page += LTE_PAGE_SIZE, p += LTE_PAGE_SIZE)
+   for(; addr_page < addr_page_last; addr_page += ELF_PAGE_SIZE, p += ELF_PAGE_SIZE)
    {
-      if(!m_mem.count(addr_page))
+      auto pg = m_mem.find(addr_page);
+      if(pg == m_mem.end())
          return addr_page - addr_start;
-      m_mem[addr_page].set(0, p, LTE_PAGE_SIZE);
+      pg->second.set(0, p, ELF_PAGE_SIZE);
    }
 
    if(addr_page < addr_end)
    {
-      if(!m_mem.count(addr_page))
+      auto pg = m_mem.find(addr_page);
+      if(pg == m_mem.end())
          return addr_page - addr_start;
-
-      m_mem[addr_page].set(0, p, addr_end - addr_page);
+      pg->second.set(0, p, addr_end - addr_page);
    }
 
    return size;
 }
+
+lte_uint64_t lte_memimg_t::memcopy(lte_uint8_t* p, lte_addr_t addr, lte_uint64_t size)
+{
+   if(!size || !p)
+      return 0;
+
+   lte_addr_t addr_start = addr;
+   lte_addr_t addr_end = addr_start + size;
+   lte_addr_t addr_page = addr_start & ~(lte_addr_t)(ELF_PAGE_SIZE-1);
+   lte_addr_t addr_page_last = addr_end & ~(lte_addr_t)(ELF_PAGE_SIZE-1);
+
+   if(addr_page < addr_start)
+   {
+      auto pg = m_mem.find(addr_page);
+      if(pg == m_mem.end())
+         return 0;
+
+      lte_uint64_t offs = addr_start & (lte_addr_t)(ELF_PAGE_SIZE-1);
+
+      if(offs + size < ELF_PAGE_SIZE)
+      {
+         pg->second.get(p, addr_start - addr_page, size);
+         return size;
+      }
+
+      pg->second.get(p, addr_start - addr_page, ELF_PAGE_SIZE - offs);
+      p += ELF_PAGE_SIZE - offs;
+      addr_page += ELF_PAGE_SIZE;
+   }
+
+   for(; addr_page < addr_page_last; addr_page += ELF_PAGE_SIZE, p += ELF_PAGE_SIZE)
+   {
+      auto pg = m_mem.find(addr_page);
+      if(pg == m_mem.end())
+         return addr_page - addr_start;
+      pg->second.get(p, 0, ELF_PAGE_SIZE);
+   }
+
+   if(addr_page < addr_end)
+   {
+      auto pg = m_mem.find(addr_page);
+      if(pg == m_mem.end())
+         return addr_page - addr_start;
+      pg->second.get(p, 0, addr_end - addr_page);
+   }
+
+   return size;
+}
+
+bool lte_memimg_t::is_free(lte_addr_t addr, lte_uint64_t size)
+{
+   lte_addr_t addr_start = addr;
+   lte_addr_t addr_end = addr_start + size;
+   lte_addr_t addr_page =  mem::page::base(addr);
+   lte_addr_t addr_page_last = mem::page::base(addr_end);
+
+   if(addr_page < addr_start)
+   {
+      auto offs = mem::page::offset(addr_start);
+      auto pg = m_mem.find(addr_page);
+      if(pg != m_mem.end())
+      {
+         if(mem::page::contains(offs + size))
+         {
+            return pg->second.is_free(offs, size);
+         }
+         else if(!pg->second.is_free(offs, mem::page::size() - offs))
+         {
+            return false;
+         }
+         addr_page += mem::page::size();
+      }
+   }
+
+   for(; addr_page < addr_page_last; addr_page += mem::page::size())
+   {
+      auto pg = m_mem.find(addr_page);
+      if(pg != m_mem.end() && !pg->second.empty())
+         return false;
+   }
+
+   if(addr_page < addr_end)
+   {
+      auto pg = m_mem.find(addr_page);
+      if(pg != m_mem.end() && !pg->second.is_free(0, addr_end - addr_page))
+         return false;
+   }
+
+   return true;
+}
+
 
 void lte_memimg_t::mark(lte_addr_t vastart, lte_addr_t vaend, lte_uint32_t shflags)
 {
    if(vastart == vaend)
       ++vaend;
 
-   for(vastart &= ~(lte_addr_t)(LTE_PAGE_SIZE-1); vastart < vaend; vastart += LTE_PAGE_SIZE)
+   for(vastart &= ~(lte_addr_t)(ELF_PAGE_SIZE-1); vastart < vaend; vastart += ELF_PAGE_SIZE)
    {
       if(m_mem.count(vastart))
       {

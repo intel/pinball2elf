@@ -21,18 +21,19 @@ END_LEGAL */
 #include "lte_elf.h"
 #include <map>
 
-const lte_size_t LTE_PAGE_SIZE = 4096;
+#include "lte_mem.h"
 
 enum lte_memsec_flags_enum_t {
    SHF_TEXT       = (SHF_ALLOC|SHF_EXECINSTR),
    SHF_DATA       = (SHF_ALLOC|SHF_WRITE),
    SHF_TYPEMASK   = (SHF_TEXT|SHF_DATA),
+   SHF_RELPROBE   = (1 << 28), // reusing
    SHF_STACK      = (1 << 29), // reusing
    SHF_DYNALLOC   = (1 << 30), // reusing
    SHF_ENTRYPOINT = (1 << 31), // reusing
 };
 
-class lte_mempage_t : public elf_mempage_t {
+class lte_mempage_t : public elf_mempage_t, public mem::page {
    public:
       lte_mempage_t*  region_next;
       lte_uint64_t    region_size;
@@ -42,15 +43,22 @@ class lte_mempage_t : public elf_mempage_t {
       lte_uint32_t    offs_end;
 
       lte_mempage_t();
-      lte_uint64_t get(lte_uint32_t offs) { return *(lte_uint64_t*)(data + offs); }
+      lte_uint32_t get(lte_uint8_t* p, lte_uint32_t offs, lte_uint32_t size);
       lte_uint32_t set(lte_uint32_t offs, const lte_uint8_t* p, lte_uint32_t size);
-};
+      bool is_free(lte_uint32_t offs, lte_uint32_t length);
+      std::pair<lte_uint32_t,bool> find_free_block(lte_uint32_t length);
+      bool empty() const { return offs_end <= offs_start; }
+      void reserve(lte_uint32_t offs, lte_uint32_t length);
+      bool contains(lte_addr_t addr) { return (addr - va) < get_size(); }
 
-typedef lte_mempage_t lte_memsec_t;
+      lte_addr_t data_addr() const { return va + offs_start; }
+      lte_addr_t data_end_addr() const { return va + offs_end; }
+      lte_addr_t data_size() const { return offs_end - offs_start; }
+};
 
 class lte_memimg_t {
    public:
-      static const lte_uint32_t page_size = 4096;
+      static const lte_uint32_t page_size = ELF_PAGE_SIZE;
 
    protected:
       std::map<lte_addr_t, lte_mempage_t> m_mem;
@@ -63,7 +71,8 @@ class lte_memimg_t {
 
       virtual bool load(const char* fname, lte_addr_t addr_max, lte_bool_t text_compressed) = 0;
 
-      lte_addr_t find_free_block(lte_uint64_t size, lte_uint32_t shflags);
+      lte_addr_t find_free_block(lte_size_t size, lte_uint32_t shflags);
+      std::pair<lte_addr_t, bool> find_free_block(lte_addr_t addr, lte_addr_t addr_lo, lte_addr_t addr_hi, lte_size_t size, lte_uint32_t shflags);
       lte_mempage_t* get_first_page() { return m_mem.size() ? &m_mem.begin()->second : NULL; }
       lte_mempage_t* get_page(lte_addr_t addr);
       lte_mempage_t* get_last_page() { return m_mem.size() ? &m_mem.rbegin()->second : NULL; }
@@ -71,7 +80,10 @@ class lte_memimg_t {
       void add_missing_page(lte_addr_t missing_page_addr, lte_uint8_t *page_content);
       lte_uint64_t compact(lte_uint64_t regions_max = 0);
       lte_uint64_t memcopy(lte_addr_t addr, const lte_uint8_t* p, lte_uint64_t size);
-      lte_addr_t insert(const lte_uint8_t* p, lte_uint64_t size, lte_uint32_t shflags);
+      lte_uint64_t memcopy(lte_uint8_t* p, lte_addr_t addr, lte_uint64_t size);
+      lte_addr_t insert(const lte_uint8_t* p, lte_uint64_t size, lte_uint32_t shflags, bool reserve = false);
+      bool insert(lte_addr_t addr, const lte_uint8_t* p, lte_uint64_t size, lte_uint32_t shflags, bool reserve = false);
+      bool is_free(lte_addr_t addr, lte_uint64_t size);
       iterator begin() { return m_mem.begin(); }
       iterator end() { return m_mem.end(); }
       void mark(lte_addr_t vastart, lte_addr_t vaend, lte_uint32_t shflags);
@@ -95,7 +107,7 @@ class lte_mem_layout_t {
       lte_addr_t get_aligned(lte_addr_t va) { return __lte_align(va, m_block_size); }
 
    public:
-      lte_mem_layout_t(lte_size_t block_size = LTE_PAGE_SIZE) : m_block_size(block_size)  {}
+      lte_mem_layout_t(lte_size_t block_size = ELF_PAGE_SIZE) : m_block_size(block_size)  {}
 
       lte_addr_t insert(lte_addr_t va, lte_uint64_t size);
       lte_addr_t insert(lte_uint64_t size);

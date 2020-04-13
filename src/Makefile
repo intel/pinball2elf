@@ -65,11 +65,13 @@ ifeq ($(COMPILER),gnu)
   CXX_WARNINGS = -Wno-invalid-offsetof -Wno-deprecated
   GUARDFLAGS = -fstack-protector-all # requires gcc 4.9 or higher
 
-  CXXFLAGS_DBG = -g -O0 $(FALIGN) $(GUARDFLAGS) $(WARNINGS) $(CXX_WARNINGS)
+  CXXFLAGS_STD=-std=c++17
+
+  CXXFLAGS_DBG = -g -O0 $(FALIGN) $(GUARDFLAGS) $(WARNINGS) $(CXX_WARNINGS) $(CXXFLAGS_STD)
   CCFLAGS_DBG  = -g -O0 $(FALIGN) $(GUARDFLAGS) $(WARNINGS) $(C_WARNINGS)
   LDFLAGS_DBG  = -g -O0
 
-  CXXFLAGS_OPT = -g -O2 $(FALIGN) $(GUARDFLAGS) -DNDEBUG $(WARNINGS) $(CXX_WARNINGS)
+  CXXFLAGS_OPT = -g -O2 $(FALIGN) $(GUARDFLAGS) -DNDEBUG $(WARNINGS) $(CXX_WARNINGS) $(CXXFLAGS_STD)
   CCFLAGS_OPT  = -g -O2 $(FALIGN) $(GUARDFLAGS) -DNDEBUG $(WARNINGS) $(C_WARNINGS)
   LDFLAGS_OPT  = -g -O2
 
@@ -118,6 +120,7 @@ LIT2ELF_OBJS = lit2elf.$(OBJEXT) \
 	lte_pinball.$(OBJEXT) \
 	lte_portability.$(OBJEXT) \
 	lte_reg_enum.$(OBJEXT) \
+	lte_relocation.$(OBJEXT) \
 	lte_string.$(OBJEXT) \
 	lte_strtab.$(OBJEXT) \
 	lte_utils.$(OBJEXT) \

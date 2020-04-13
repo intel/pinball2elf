@@ -37,6 +37,7 @@ class config_t {
       const char* m_ld_script_file;
       const char* m_arch_desc_file;
       const char* m_arch_state_file;
+      const char* m_rel_file;
       const char* m_exe_file;
       const char* m_obj_file;
       const char* m_arch_state_out_file;
@@ -66,7 +67,8 @@ class config_t {
       std::vector<const char*> m_nonopt_vec;
       char const* const* m_nonopt_argv;
       int m_nonopt_argc;
-      std::set<uint64_t> m_break_points;
+      std::set<lte_addr_t> m_break_points;
+      std::map<lte_addr_t, std::pair<std::string,uint64_t>> m_callbacks;
 
    public:
       config_t();
@@ -105,6 +107,10 @@ class config_t {
       const char* get_ld_script_file_name() const
       {
          return m_ld_script_file;
+      }
+      const char* get_rel_file_name() const
+      {
+         return m_rel_file;
       }
       const char* get_exe_file_name() const
       {
@@ -194,12 +200,12 @@ class config_t {
       {
          return m_break_points;
       }
+      auto& get_callbacks()
+      {
+         return m_callbacks; 
+      }
 };
 
-inline config_t& get_config()
-{
-   static config_t cfg;
-   return cfg;
-}
+config_t& get_config();
 
 #endif /*_LTE_CONFIG_H_*/

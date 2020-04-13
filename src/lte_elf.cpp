@@ -237,6 +237,14 @@ elf_t::section::section(elf_t* elf, Elf64_Section index) : m_elf(elf), m_sh_inde
 {
 }
 
+void elf_t::section::add_relatab_entry(Elf64_Addr offset, Elf32_Word sym, Elf32_Word type, Elf64_Sxword addend)
+{
+   assert(m_elf);
+   if(!m_relatab)
+      m_relatab = m_elf->create_relatab();
+   m_relatab->push_back(offset, sym, type, addend);
+}
+
 elf_t* elf_t::create(Elf_Class_t elf_class, Elf64_Half elf_type)
 {
    switch(elf_class)

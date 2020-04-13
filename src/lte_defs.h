@@ -103,13 +103,6 @@ extern "C" {
 /* pointer to last element of static array */
 #define LTE_ARRAY_LAST(v) (LTE_ARRAY_END(v)-1)
 
-/* a must be power of 2 */
-#define LTE_ALIGN(v,a)        ((v)&~((a)-1))
-#define LTE_ALIGN_UP(v,a)     LTE_ALIGN((v)+(((a)-1)),a)
-#define LTE_PTRALIGN(p,a)     LTE_OFFS2PTR(LTE_ALIGN(LTE_PTR2OFFS(p,a)))
-#define LTE_PTRALIGN_UP(p,a)  LTE_OFFS2PTR(LTE_ALIGN_UP(LTE_PTR2OFFS(p,a)))
-#define LTE_OFFS(v, a)        ((v)&((a)-1))
-
 #ifdef __cplusplus
 }
 #endif

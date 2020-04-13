@@ -23,6 +23,12 @@ const lte_addr_t default_user_space_limit_64 = 0;//unlimited
 const lte_addr_t default_remap_limit = LTE_MAXVAL(lte_addr_t);
 const  lte_uint32_t default_cbk_stack_size = 0x400000; // 4MB
 
+config_t& get_config()
+{
+   static config_t cfg;
+   return cfg;
+}
+
 void config_t::usage(const char* exe_name) const
 {
    std::cout << "Usage: " << (exe_name ? exe_name : m_executable) << " [options] [FILES]\n";
@@ -50,6 +56,7 @@ config_t::config_t()
    m_roi_start_mask = 0;
    m_magic2_mask = 0;
    m_roi_thread_id = 0;
+   m_rel_file = NULL;
    m_exe_file = NULL;
    m_user_space_limit_set = false;
    m_nonopt_argc = 0;
@@ -83,6 +90,7 @@ void config_t::help_msg(const char* exe_name) const
              << "  -x FILE                          executable file name\n"
              << "  -o FILE                          object file name\n"
              << "  -S FILE                          architectural state converted to assembly\n"
+             << "  -R FILE                          relocation information\n"
              << "  -T FILE, --ld-script FILE        linker script\n"
              << "  -D FLAGS, --data-seg-flags FLAGS set data sections flags, combination of A,W,X\n"
              << "  -C FLAGS, --text-seg-flags FLAGS set text sections flags, combination of A,W,X\n"
@@ -92,6 +100,7 @@ void config_t::help_msg(const char* exe_name) const
              << "  -p FUNC, --process-cbk FUNC      name of process start callback\n"
              << "  -e FUNC, --process-exit-cbk FUNC name of process exit callback\n"
              << "  -t FUNC, --thread-cbk FUNC       name of thread start callback\n"
+             << "  -I ADDR:FUNC[:INFO]              define instruction callback\n"
              << "  -b ADDR                          insert break at address ADDR"
              << "  --cbk-stack-size NUM             callback stack size\n"
              << "  --[no-]stack-remap               enable(DEFAULT)/disable stack related pages remapping\n"
@@ -239,6 +248,17 @@ static void get_magic_instr_tag(const char* arg, lte_uint32_t* tags, lte_uint32_
    }
 }
 
+static std::vector<std::string> split(const std::string& s, char delimiter)
+{
+   std::vector<std::string> r;
+   std::string w;
+   std::istringstream iss(s);
+   while (std::getline(iss, w, delimiter))
+   {
+      r.push_back(w);
+   }
+   return r;
+}
 
 void config_t::init(int argc, char* argv[])
 {
@@ -319,6 +339,11 @@ void config_t::init(int argc, char* argv[])
          optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
          m_arch_state_out_file = argi[1];
       }
+      else if(is_opt(argi[0], "-R"))
+      {
+         optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
+         m_rel_file = argi[1];
+      }
       else if(is_opt(argi[0], "-o"))
       {
          optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
@@ -354,6 +379,26 @@ void config_t::init(int argc, char* argv[])
          {
             m_break_points.insert(addr);
          }
+      }
+      else if(is_opt(argi[0], "-I"))
+      {
+         optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
+
+         std::vector<std::string> v =  split(argi[1], ':');
+
+         if(v.size() == 2)
+         {
+            char* end;
+            lte_uint64_t inst_addr = lte_strtoull(v[0].c_str(), &end, 16);
+            if(!*end)
+            {
+               auto& info = m_callbacks[inst_addr];
+               info.first = v[1];
+               info.second = 0;
+               continue;
+            }
+         }
+         LTE_ERRX("wrong callback format '%s'", argi[1]);
       }
       else if(is_opt(argi[0], "--magic2"))
       {

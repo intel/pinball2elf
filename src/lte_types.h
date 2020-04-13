@@ -83,9 +83,9 @@ typedef lte_uint64_t       lte_addr64_t;
 typedef lte_uint32_t       lte_size32_t;
 typedef lte_uint64_t       lte_size64_t;
 typedef size_t             lte_size_t;
-#if defined(__LTE_LINUX)
+#if defined(__LTE_LINUX64__)
 typedef ssize_t            lte_ssize_t;
-#elif defined(__LTE_WIN64)
+#elif defined(__LTE_WIN64__)
 typedef lte_int64_t        lte_ssize_t;
 #else
 typedef lte_int_t          lte_ssize_t;

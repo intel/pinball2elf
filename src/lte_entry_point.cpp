@@ -412,7 +412,7 @@ typedef enum {
    E64_SIM_ROI_TAG_SSC_OFFS    = 0x34f,
    E64_SIM_ROI_TAG_SIMICS_OFFS = 0x357,
    E64_THREAD_ENTRY_TABLE_OFFS = 0x363,
-   E64_THREAD_START_ADDR_OFFS  = 0x36a, // thread start address#endif
+   E64_THREAD_START_ADDR_OFFS  = 0x36a, // thread start address
    E64_SIZE                    = sizeof(s_entry64),
    E64_ON_PSTART_SIZE          = E64_ON_PEXIT_OFFS-E64_ON_PSTART_OFFS,
    E64_ON_PEXIT_SIZE           = E64_ON_TSTART_OFFS-E64_ON_PEXIT_OFFS,

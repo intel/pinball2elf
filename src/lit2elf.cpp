@@ -23,13 +23,23 @@ END_LEGAL */
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <unordered_map>
+
+#define DEBUG_LIT2ELF
+#ifdef DEBUG_LIT2ELF
+#include <iostream>
+#include <iomanip>
+#define print_hexw(v, w) std::hex<<std::setfill('0')<<std::setw(w)<<(v)<<std::setfill(' ')<<std::dec
+#define print_hex(v)     std::hex<<(v)<<std::dec
+#endif
+
 
 static char CommentSecn[] = "pinball2elf 1.0";
 static char DataSegName[] = ".pbdata";
 static char TextSegName[] = ".pbtext";
+static char ProbeTextSegName[] = ".pbtext.probe";
 static char DmapSegName[] = ".pbdmap";
 static char StckSegName[] = ".pbstck";
-static char RelaTextSegName[] = ".rela.text";
 static char SymtabSegName[] = ".symtab";
 static char EntryDataSegName[] = ".data";
 static char EntryTextSegName[] = ".text";
@@ -179,7 +189,7 @@ static void litelfCreateMemImageSections(elf_t& elf, elf_t::symtab& symtab, lte_
 
       if(region_flags & SHF_EXECINSTR)
       {
-         name = TextSegName;
+         name = (region_flags & SHF_RELPROBE) ? ProbeTextSegName : TextSegName;
          flags = text_flags;
       }
       else
@@ -337,6 +347,42 @@ static void litelfAddThreadStartSymbol(elf_t& elf, elf_t::symtab& symtab,
       lte_addr_t addr = thread_start_va - section->get_sh_addr();
       Elf64_Xword size = section->get_sh_size() - addr;
       symtab.push_back((Elf64_Word)strtab.push_back(name), addr, size, ELF_ST_INFO(elf.get_e_class(), STB_GLOBAL, STT_FUNC), 0, section->get_index());
+   }
+}
+
+static void litelfCbRelaSymbol(elf_t& elf, elf_t::symtab& symtab, elf_t::strtab& strtab, pinball_rel_t& rel)
+{
+   std::unordered_map<std::string, Elf64_Word> cb_names;
+
+   for(auto ri = rel.begin(); ri != rel.end(); ++ri)
+   {
+      if(ri->second.cb_name.empty())
+        continue;
+
+      elf_t::section* section = elf.get_section(ri->second.cb_addr, SHF_ALLOC);
+      if(section)
+      {
+         auto& info = ri->second;
+         auto r = cb_names.find(info.cb_name);
+         Elf64_Word st_name;
+
+         if(r == cb_names.end())
+         {
+            st_name = (Elf64_Word)strtab.push_back(info.cb_name.c_str());
+            cb_names[info.cb_name] = st_name;
+         }
+         else
+         {
+            st_name = r->second;
+         }
+
+         lte_size_t r_offset = info.cb_addr - section->get_sh_addr();
+         lte_symtab_index_t index = symtab.get_entries_num();
+
+         symtab.push_back(st_name, 0, 0, ELF64_ST_INFO(STB_GLOBAL, STT_NOTYPE), 0, section->get_index());
+         section->add_relatab_entry(r_offset, index, ELF_R_TYPE(ELF64_R_INFO(0,R_X86_64_64)), 0);
+         symtab.set_st_shndx(index, STN_UNDEF);
+      }
    }
 }
 
@@ -705,7 +751,6 @@ int main(int argc, char** argv)
    elf_t* elf;
    elf_t::strtab strtab;
    elf_t::symtab* symtab;
-   elf_t::relatab* relatab;
    entry_point_t* entry;
    elf_table_t dynpages;
    lte_addr_t entry_va, entry_data_va, remap_va;
@@ -755,6 +800,23 @@ int main(int argc, char** argv)
       }
    }
 
+   pinball_rel_t rel;
+   if(get_config().get_rel_file_name())
+   {
+      rel.load(get_config().get_rel_file_name());
+
+      for(auto it = rel.begin(); it != rel.end(); ++it)
+      {
+         auto r = get_config().get_callbacks().find(it->first);
+         if(r != get_config().get_callbacks().end())
+         {
+            it->second.cb_name = r->second.first;
+         } 
+      }
+
+      rel.print();
+   }
+
    elf = elf_t::create(arch_state.get_arch());
    if(elf == NULL)
    {
@@ -772,10 +834,10 @@ int main(int argc, char** argv)
          entry->setup(arch_state.get_threads_num(), &arch_state.get_thread_state(0), dynpages.table_ptr(), dynpages.count());
          entry->enable_modify_ldt(!get_config().no_modify_ldt(arch_state.get_arch()));
 
-         entry_va = img.insert(NULL, entry->get_code_size(), SHF_TEXT|SHF_ENTRYPOINT);
+         entry_va = img.insert(NULL, entry->get_code_size(), SHF_TEXT|SHF_ENTRYPOINT, true);
          LTE_ERRAX(!entry_va, "no space for entry point code");
 
-         entry_data_va = img.insert(NULL, entry->get_data_size(), SHF_DATA|SHF_ENTRYPOINT);
+         entry_data_va = img.insert(NULL, entry->get_data_size(), SHF_DATA|SHF_ENTRYPOINT, true);
          LTE_ERRAX(!entry_data_va, "no space for entry point data");
 
          entry->relocate_code(entry_va); // should be before copying to image
@@ -805,6 +867,249 @@ int main(int argc, char** argv)
       entry = NULL;
       entry_va = arch_state.get_thread_state(0).rip;
       entry_data_va = 0;
+   }
+
+   lte_size_t rel_text_size = relocation::get_save_ctx_size() + relocation::get_rstor_ctx_size();
+   lte_addr_t addr_max = get_config().get_user_space_limit(arch_state.get_arch());
+
+   for(auto ri = rel.begin(); ri != rel.end(); ++ri)
+   {
+      if(ri->second.cb_name.empty())
+        continue;
+
+      auto addr = ri->first;
+      auto pg = img.get_page(addr);
+
+      if(pg)
+      {
+         auto& info = ri->second;
+
+         relocation::rcode_buffer_t code;
+         img.memcopy(code.data, addr, info.size);
+
+         jmp_disp_t* probe = (jmp_disp_t*)code.data;
+         relocation r;
+
+         auto range = info.get_disp_range(code.data, info.info[0].inst_size(), true);
+
+
+         if(range.first == 0 && range.second == 0)
+         {
+            lte_addr_t target_rel32 = addr + BR_REL_DISP32_SIZE + probe->disp32;
+            lte_addr_t tolerance = 0x7fffffff;
+            if(info.info[0].inst_size() < BR_REL_DISP32_SIZE)
+               tolerance >>= (BR_REL_DISP32_SIZE - info.info[0].inst_size()) << 3;
+
+            auto blck_rel32 = img.find_free_block(target_rel32, target_rel32 - tolerance,
+                                                  target_rel32 + tolerance + BR_IDIR_ABS64_SIZE, BR_IDIR_ABS64_SIZE, SHF_TEXT);
+            if(blck_rel32.second)
+            {
+               if(blck_rel32.first == target_rel32)
+               {
+                  lte_size_t rsize = r.get_code_max_size(code.data, 1, &info);
+                  assert(rsize);
+                  rel_text_size += rsize;
+
+                  std::cout << print_hexw(addr, 16) << ": 32-bit offset relocation [safe]" << std::endl
+                            << "    target       : " << print_hexw(target_rel32, 16) << std::endl
+                            << "    target safe  : " << print_hexw(blck_rel32.first, 16) << std::endl
+                            << "    tolerance    : " << print_hexw(tolerance, 16) << std::endl
+                            << "    1st inst len : " << info.info[0].inst_size() << std::endl;
+
+                  ri->second.flags.safe32 = 1;
+
+                  jmp_indirect_t probe_target;
+                  img.insert(blck_rel32.first, (lte_uint8_t*)&probe_target, sizeof(probe_target), SHF_TEXT|SHF_RELPROBE);
+               }
+               else
+               {
+                  lte_size_t rsize = r.get_code_max_size(code.data, info.info[0].inst_size(), &info);
+                  assert(rsize);
+                  rel_text_size += rsize;
+
+                  std::cout << print_hexw(addr, 16) << ": 32-bit offset relocation [safe with tolerance]" << std::endl
+                            << "    target       : " << print_hexw(target_rel32, 16) << std::endl
+                            << "    target found : " << print_hexw(blck_rel32.first, 16) << std::endl
+                            << "    tolerance    : " << print_hexw(tolerance, 16) << std::endl
+                            << "    1st inst len : " << info.info[0].inst_size() << std::endl;
+
+                  jmp_indirect_t probe_target;
+                  img.insert(blck_rel32.first, (lte_uint8_t*)&probe_target, sizeof(probe_target), SHF_TEXT|SHF_RELPROBE);
+               }
+
+               ri->second.flags.addr32 = 1;
+               ri->second.addr32 = blck_rel32.first;
+               ri->second.tolerance32 = tolerance;
+            }
+            else if(info.info[0].inst_size() >= BR_REL_DISP32_SIZE)
+            {
+               tolerance = 0x7fffffff;
+               auto blck_rel32 = img.find_free_block(target_rel32, target_rel32 - tolerance,
+                                                     target_rel32 + tolerance + BR_IDIR_ABS64_SIZE, BR_IDIR_ABS64_SIZE, SHF_TEXT);
+
+
+               lte_size_t rsize = r.get_code_max_size(code.data, info.info[0].inst_size(), &info);
+               assert(rsize);
+               rel_text_size += rsize;
+
+               std::cout << print_hexw(addr, 16) << ": 32-bit offset relocation [usafe]" << std::endl
+                         << "    target       : " << print_hexw(target_rel32, 16) << std::endl
+                         << "    target found : " << print_hexw(blck_rel32.first, 16) << std::endl
+                         << "    tolerance    : " << print_hexw(tolerance, 16) << std::endl
+                         << "    1st inst len : " << info.info[0].inst_size() << std::endl;
+
+               jmp_indirect_t probe_target;
+               img.insert(blck_rel32.first, (lte_uint8_t*)&probe_target, sizeof(probe_target), SHF_TEXT|SHF_RELPROBE);
+
+               ri->second.flags.addr32 = 1;
+               ri->second.addr32 = blck_rel32.first;
+               ri->second.tolerance32 = tolerance;
+            }
+            else
+            {
+               std::cout << print_hexw(addr, 16) << ": can not relocate" << std::endl;
+               ri->second.flags.nonrelocatable = 1;
+            }
+         }
+         else
+         {
+            assert(info.info[0].inst_size() >= BR_REL_DISP32_SIZE);
+
+            lte_addr_t target_rel32 = addr + BR_REL_DISP32_SIZE + probe->disp32;
+            lte_addr_t target_lo = addr + range.second - BR_DISP_MAX;
+            lte_addr_t target_hi = addr + range.first + BR_DISP_MAX;
+
+            lte_size_t rsize = r.get_code_max_size(code.data, BR_REL_DISP32_SIZE, &info);
+            auto blck_rel32 = img.find_free_block(target_rel32, target_lo, target_hi, rsize, SHF_TEXT);
+
+            ri->second.flags.nonrelocatable = 1;
+            ri->second.flags.mem = 1;
+            
+            if(blck_rel32.second)
+            {
+               memset(r.get_code(), 0xcc, rsize);
+
+               if(blck_rel32.first == target_rel32)
+               {
+                  // insert placeholder
+                  img.insert(blck_rel32.first, r.get_code(), rsize, SHF_TEXT);
+                  std::cout << print_hexw(addr, 16) << ": 32-bit offset relocation [mem safe]" << std::endl
+                            << "    target       : " << print_hexw(target_rel32, 16) << std::endl
+                            << "    target safe  : " << print_hexw(blck_rel32.first, 16) << std::endl
+                            << "    range        : " << print_hexw(target_lo, 16) << "-" << print_hexw(target_hi, 16) << std::endl
+                            << "    1st inst len : " << info.info[0].inst_size() << std::endl;
+
+                  ri->second.flags.safe32 = 1;
+               }
+               else
+               {
+                  // insert placeholder
+                  img.insert(blck_rel32.first, r.get_code(), rsize, SHF_TEXT);
+                  std::cout << print_hexw(addr, 16) << ": 32-bit offset relocation [mem safe with tolerance]" << std::endl
+                            << "    target       : " << print_hexw(target_rel32, 16) << std::endl
+                            << "    target found : " << print_hexw(blck_rel32.first, 16) << std::endl
+                            << "    range        : " << print_hexw(target_lo, 16) << "-" << print_hexw(target_hi, 16) << std::endl
+                            << "    1st inst len : " << info.info[0].inst_size() << std::endl;
+               }
+
+               ri->second.flags.nonrelocatable = 0;
+               ri->second.flags.addr32 = 1;
+               ri->second.addr32 = blck_rel32.first;
+            }
+
+            if(ri->second.flags.nonrelocatable)
+            {
+               std::cout << print_hexw(addr, 16) << ": can not relocate" << std::endl;
+            }
+         }
+      }
+   }
+
+   if(rel_text_size)
+   {
+      elf_table_t rel_text;
+
+      rel_text.push_back(relocation::get_save_ctx_code(), relocation::get_save_ctx_size());
+      rel_text.push_back(relocation::get_rstor_ctx_code(), relocation::get_rstor_ctx_size());
+
+      lte_addr_t rel_text_addr = img.find_free_block(rel_text_size, SHF_TEXT);
+      lte_addr_t save_ctx_addr = rel_text_addr;
+      lte_addr_t rstor_ctx_addr = rel_text_addr + relocation::get_save_ctx_size();
+      lte_addr_t target = rstor_ctx_addr + relocation::get_rstor_ctx_size();
+
+      for(auto ri = rel.begin(); ri != rel.end(); ++ri)
+      {
+         if(ri->second.cb_name.empty())
+           continue;
+
+         auto addr = ri->first;
+         auto pg = img.get_page(addr);
+
+         if(pg && !ri->second.flags.nonrelocatable)
+         {
+            auto& info = ri->second;
+
+            relocation::rcode_buffer_t code;
+            img.memcopy(code.data, addr, info.size);
+
+            jmp_disp_t* probe = (jmp_disp_t*)code.data;
+            relocation r;
+
+            if(info.flags.mem)
+            {
+               if(info.flags.addr32)
+               {
+                  if(info.flags.safe32)
+                  {
+                     r.init(addr, info.addr32 - addr, code.data, 1, &info, save_ctx_addr, rstor_ctx_addr, 0);
+                     info.cb_addr = info.addr32 + r.get_cb_offset();
+                     info.flags.cb_addr = 1;
+                     probe->opcode = 0xe9;
+                     img.memcopy(addr, &probe->opcode, 1);
+                  }
+                  else
+                  {
+                     r.init(addr, info.addr32 - addr, code.data, BR_REL_DISP32_SIZE, &info, save_ctx_addr, rstor_ctx_addr, 0);
+                     info.cb_addr = info.addr32 + r.get_cb_offset();
+                     info.flags.cb_addr = 1;
+                     probe->opcode = 0xe9;
+                     probe->disp32 = (info.addr32 - (addr + BR_REL_DISP32_SIZE));
+                     img.memcopy(addr, &probe->opcode, BR_REL_DISP32_SIZE);
+                  }
+                  img.insert(info.addr32, r.get_code(), r.get_code_size(), SHF_TEXT);
+               }
+            }
+            else if(info.flags.addr32)
+            {
+               if(info.flags.safe32)
+               {
+                  img.memcopy(ri->second.addr32 + 6, (lte_uint8_t*)&target, 8);
+                  r.init(addr, target - addr, code.data, 1, &info, save_ctx_addr, rstor_ctx_addr, 0);
+                  info.cb_addr = target + r.get_cb_offset();
+                  info.flags.cb_addr = 1;
+
+                  rel_text.push_back(r.get_code(), r.get_code_size());
+                  target += r.get_code_size();
+                  probe->opcode = 0xe9;
+                  img.memcopy(addr, &probe->opcode, 1);
+               }
+               else
+               {
+                  img.memcopy(ri->second.addr32 + 6, (lte_uint8_t*)&target, 8);
+                  r.init(addr, target - addr, code.data, info.info[0].inst_size(), &info, save_ctx_addr, rstor_ctx_addr, 0);
+                  info.cb_addr = target + r.get_cb_offset();
+                  info.flags.cb_addr = 1;
+
+                  rel_text.push_back(r.get_code(), r.get_code_size());
+                  target += r.get_code_size();
+                  probe->opcode = 0xe9;
+                  probe->disp32 = (ri->second.addr32 - (addr + BR_REL_DISP32_SIZE));
+                  img.memcopy(addr, &probe->opcode, BR_REL_DISP32_SIZE);
+               }
+            }
+         }
+      }
+      img.insert(rel_text_addr, (lte_uint8_t*)rel_text.table_ptr(), rel_text.table_size(), SHF_TEXT);
    }
 
    // Insert breakpoints (INT3) 
@@ -840,8 +1145,6 @@ int main(int argc, char** argv)
    // create comment section
    litelfCreateCommentSection(*elf, *symtab);
 
-   relatab = elf->create_relatab();
-
    if(!get_config().no_startup_code())
    {
       const Elf_SymInfo_t* sym;
@@ -856,7 +1159,7 @@ int main(int argc, char** argv)
             litelfAddSymbol(*symtab, strtab, sym->name, sym->offs, sym->size, sym->info, 0, section->get_index());
             if(sym->rela)
             {
-               relatab->push_back(sym->rela->r_offset, index, ELF_R_TYPE(sym->rela->r_info), sym->rela->r_addend);
+               section->add_relatab_entry(sym->rela->r_offset, index, ELF_R_TYPE(sym->rela->r_info), sym->rela->r_addend);
                symtab->set_st_shndx(index, STN_UNDEF);
             }
          }
@@ -870,7 +1173,7 @@ int main(int argc, char** argv)
             litelfAddSymbol(*symtab, strtab, sym->name, sym->offs, sym->size, sym->info, 0, section->get_index());
             if(sym->rela)
             {
-               relatab->push_back(sym->rela->r_offset, index, ELF_R_TYPE(sym->rela->r_info), sym->rela->r_addend);
+               section->add_relatab_entry(sym->rela->r_offset, index, ELF_R_TYPE(sym->rela->r_info), sym->rela->r_addend);
                symtab->set_st_shndx(index, STN_UNDEF);
             }
          }
@@ -880,6 +1183,8 @@ int main(int argc, char** argv)
          litelfCreateArchStateFile(get_config().get_arch_state_out_file_name(), entry->get_data_bytes(), entry->get_data_size(),
                                    entry->get_data_sym_first(), entry->get_data_sym_end());
    }
+
+   litelfCbRelaSymbol(*elf, *symtab, strtab, rel);
 
    for(lte_size_t i = 0; i < arch_state.get_threads_num(); ++i)
       litelfAddThreadStartSymbol(*elf, *symtab, strtab, i, arch_state.get_thread_state(i).rip);
@@ -903,38 +1208,26 @@ int main(int argc, char** argv)
       LTE_ASSERT(symtab_sec);
    }
 
-   if(relatab->get_entries_num())
-   {
-      LTE_ERRAX(elf->get_e_class() != ELFCLASS64, "callbacks are not supported for 32bit pinballs yet");
+   std::vector<elf_t::section*> rela_tabs;
 
-      elf_t::section* rela_text = elf->create_section(RelaTextSegName, SHT_RELA, 0);
-      if(rela_text)
+   for(auto s = elf->section_begin(); s != elf->section_end(); ++s)
+   {
+      if((*s)->get_relatab() && (*s)->get_relatab()->get_entries_num())
+         rela_tabs.push_back(*s);
+   }
+
+   for(auto& sec : rela_tabs)
+   {
+      std::string sec_name = std::string(".rela") + sec->get_name();
+      elf_t::section* rela_sec = elf->create_section(sec_name.c_str(), SHT_RELA, 0);
+      if(rela_sec)
       {
-         rela_text->set_data(relatab);
-         rela_text->set_sh_entsize(relatab->get_entry_size());
-         elf_t::section* sec1 = elf->get_section(SymtabSegName);
-         if(sec1)
-         {
-            rela_text->set_sh_link(sec1->get_index());
-         }
-         else
-         {
-            LTE_ASSERT(sec1);
-         }
-         elf_t::section* sec2 = elf->get_section(EntryTextSegName);
-         if(sec2)
-         {
-            rela_text->set_sh_info(sec2->get_index());
-         }
-         else
-         {
-            LTE_ASSERT(sec2);
-         }
-         symtab->push_back(rela_text->get_sh_name(), 0, 0, ELF_ST_INFO(elf->get_e_class(), STB_LOCAL, STT_SECTION), 0, rela_text->get_index());
-      }
-      else
-      {
-         LTE_ASSERT(rela_text);
+         elf_t::relatab* relatab = sec->get_relatab();
+         rela_sec->set_data(relatab);
+         rela_sec->set_sh_entsize(relatab->get_entry_size());
+         rela_sec->set_sh_link(symtab_sec->get_index());
+         rela_sec->set_sh_info(sec->get_index());
+         symtab->push_back(rela_sec->get_sh_name(), 0, 0, ELF_ST_INFO(elf->get_e_class(), STB_LOCAL, STT_SECTION), 0, rela_sec->get_index());
       }
    }
 
@@ -981,7 +1274,7 @@ int main(int argc, char** argv)
 
    if(fexename)
    {
-      if(relatab->get_entries_num())
+      if(rela_tabs.size())
       {
          mktemp_template tmp("p2e-elfie.XXXXXX");
          mktemp_tempfile tmpfiles[3];
@@ -1031,7 +1324,6 @@ int main(int argc, char** argv)
    }
 
    delete elf;
-   delete relatab;
    delete symtab;
    delete entry;
 

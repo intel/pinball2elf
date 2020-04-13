@@ -804,3 +804,81 @@ void pinball_mem_layout_t::print()
                 << ' ' << rgn.data << '\n';
    }
 }
+
+static lte_uint32_t rinfo_strtoul(const char* str, char** end)
+{
+   return lte_strtoul(str, end, strncmp(str, "0x", 2) ? 10 : 16);
+}
+
+bool pinball_rel_t::load(const char* fname)
+{
+   pinball_ifstream_t f(fname);
+
+   if(!f)
+      return false;
+
+   text_rinfo_t* rinfo = nullptr;
+   char* end;
+
+   for(lte_strlist_t line; f.getline(line);)
+   {
+      lte_uint32_t count = line.str_count();
+
+      if(!count)
+         continue;
+
+      LTE_ERRAX(count != 2, "invalid data in relocation file [%s:%d]", fname, f.getlinesread());
+
+      if(!strncmp(line[0], "/0x", 3))
+      {
+         rinfo = nullptr;
+
+         lte_addr_t addr;
+         lte_uint32_t size = 0;
+
+         addr = lte_strtoull(line[0] + 3, &end, 16);
+         size = *end ? 0 : lte_strtoul(line[1], &end, 10);
+
+         if(*end)
+         {
+            LTE_ERRX("invalid data in relocation file [%s:%d]", fname, f.getlinesread());
+         }
+
+         if(!size)
+            continue;
+
+         rinfo = &m_rinfo[addr];
+         rinfo->clear();  
+         rinfo->size = size;
+      }
+      else if(rinfo)
+      {
+         lte_uint32_t r_offset = lte_strtoul(line[0], &end, 10);
+         lte_uint32_t r_info = *end ? 0 : rinfo_strtoul(line[1], &end);
+
+         if(*end)
+         {
+            LTE_ERRX("invalid data in relocation file [%s:%d]", fname, f.getlinesread());
+         }
+
+         if(!rinfo->push_back(r_offset, r_info))
+         {
+            LTE_WARN(" ignored [%s:%d]", fname, f.getlinesread());
+         }
+      }
+   }
+
+   return true;
+}
+
+void pinball_rel_t::print()
+{
+   for(auto it = begin(); it != end(); ++it)
+   {
+      std::cout << "/0x" << std::hex << it->first << ' ' << std::dec << it->second.size << ' ' << it->second.cb_name << std::endl;
+      for(lte_uint_t i = 0; i < it->second.count; ++i)
+      {
+         std::cout << std::dec << it->second.info[i].r_offset << " 0x" << std::hex << it->second.info[i].r_info  << std::endl;
+      }
+   }
+}
