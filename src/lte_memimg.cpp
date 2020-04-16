@@ -40,7 +40,7 @@ lte_mempage_t::lte_mempage_t()
    pa = 0;
    offs_start = ELF_PAGE_SIZE;
    offs_end = 0;
-   memset(data, 0xcc, sizeof(data));
+   memset(data, 0, sizeof(data));
 }
 
 lte_uint32_t lte_mempage_t::get(lte_uint8_t* p, lte_uint32_t offs, lte_uint32_t size)

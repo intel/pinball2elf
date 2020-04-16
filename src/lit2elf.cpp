@@ -896,7 +896,7 @@ int main(int argc, char** argv)
          if(range.first == 0 && range.second == 0)
          {
             lte_addr_t target_rel32 = addr + BR_REL_DISP32_SIZE + probe->disp32;
-            lte_addr_t tolerance = 0x7fffffff;
+            lte_addr_t tolerance = BR_DISP32_MAX;
             if(info.info[0].inst_size() < BR_REL_DISP32_SIZE)
                tolerance >>= (BR_REL_DISP32_SIZE - info.info[0].inst_size()) << 3;
 
@@ -943,7 +943,7 @@ int main(int argc, char** argv)
             }
             else if(info.info[0].inst_size() >= BR_REL_DISP32_SIZE)
             {
-               tolerance = 0x7fffffff;
+               tolerance = BR_DISP32_MAX;
                auto blck_rel32 = img.find_free_block(target_rel32, target_rel32 - tolerance,
                                                      target_rel32 + tolerance + BR_IDIR_ABS64_SIZE, BR_IDIR_ABS64_SIZE, SHF_TEXT);
 
@@ -976,8 +976,8 @@ int main(int argc, char** argv)
             assert(info.info[0].inst_size() >= BR_REL_DISP32_SIZE);
 
             lte_addr_t target_rel32 = addr + BR_REL_DISP32_SIZE + probe->disp32;
-            lte_addr_t target_lo = addr + range.second - BR_DISP_MAX;
-            lte_addr_t target_hi = addr + range.first + BR_DISP_MAX;
+            lte_addr_t target_lo = addr + range.second - BR_DISP32_MAX;
+            lte_addr_t target_hi = addr + range.first + BR_DISP32_MAX;
 
             lte_size_t rsize = r.get_code_max_size(code.data, BR_REL_DISP32_SIZE, &info);
             auto blck_rel32 = img.find_free_block(target_rel32, target_lo, target_hi, rsize, SHF_TEXT);
@@ -987,7 +987,7 @@ int main(int argc, char** argv)
             
             if(blck_rel32.second)
             {
-               memset(r.get_code(), 0xcc, rsize);
+               memset(r.get_code(), 0, rsize);
 
                if(blck_rel32.first == target_rel32)
                {

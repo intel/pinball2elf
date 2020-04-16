@@ -23,7 +23,8 @@ END_LEGAL */
 const lte_int_t BR_REL_DISP8_SIZE = 2;
 const lte_int_t BR_REL_DISP32_SIZE = 5;
 const lte_int_t BR_IDIR_ABS64_SIZE = 14;
-const lte_int_t BR_DISP_MAX = 0x7fffffff; 
+const lte_int_t BR_DISP8_MAX = 0x7f; 
+const lte_int_t BR_DISP32_MAX = 0x7fffffff; 
 
 const lte_int_t CALL_REL_DISP32_SIZE = 5;
 const lte_int_t CALL_IDIR_RAX_SIZE = 12;

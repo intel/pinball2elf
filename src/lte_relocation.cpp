@@ -16,10 +16,36 @@ END_LEGAL */
 #include "lte_relocation.h"
 #include <assert.h>
 
+#define __GNU_COMPATIBLE_UCONTEXT_LAYOUT
+
 // save context code
 static lte_uint8_t s_save_ctx[] =
 {
-//<_save_ctx>:
+#ifdef __GNU_COMPATIBLE_UCONTEXT_LAYOUT
+ /*  0*/ 0x9c,                                     //pushfq
+ /*  1*/ 0x54,                                     //push %rsp
+ /*  2*/ 0x51,                                     //push %rcx
+ /*  3*/ 0x50,                                     //push %rax
+ /*  4*/ 0x52,                                     //push %rdx
+ /*  5*/ 0x48, 0x8b, 0x4c, 0x24, 0x28,             //mov 0x28(%rsp),%rcx
+ /*  a*/ 0x48, 0x8b, 0x44, 0x24, 0x20,             //mov 0x20(%rsp),%rax
+ /*  f*/ 0x48, 0x89, 0x44, 0x24, 0x28,             //mov %rax,0x28(%rsp)
+ /* 14*/ 0x48, 0x89, 0x4c, 0x24, 0x20,             //mov %rcx,0x20(%rsp)
+ /* 19*/ 0x53,                                     //push %rbx
+ /* 1a*/ 0x55,                                     //push %rbp
+ /* 1b*/ 0x56,                                     //push %rsi
+ /* 1c*/ 0x57,                                     //push %rdi
+ /* 1d*/ 0x41, 0x57,                               //push %r15
+ /* 1f*/ 0x41, 0x56,                               //push %r14
+ /* 21*/ 0x41, 0x55,                               //push %r13
+ /* 23*/ 0x41, 0x54,                               //push %r12
+ /* 25*/ 0x41, 0x53,                               //push %r11
+ /* 27*/ 0x41, 0x52,                               //push %r10
+ /* 29*/ 0x41, 0x51,                               //push %r9
+ /* 2b*/ 0x41, 0x50,                               //push %r8   
+ /* 2d*/ 0x51,                                     //push %rcx
+ /* 2e*/ 0xc3,                                     //retq
+#else
  /*  0*/ 0x9c,                                     //pushfq
  /*  1*/ 0x53,                                     //push %rbx
  /*  2*/ 0x48, 0x8b, 0x5c, 0x24, 0x10,             //mov 0x10(%rsp),%rbx
@@ -39,11 +65,39 @@ static lte_uint8_t s_save_ctx[] =
  /* 1f*/ 0x41, 0x57,                               //push %r15
  /* 21*/ 0x53,                                     //push %rbx
  /* 22*/ 0xc3,                                     //retq 
+#endif
 };
 
 // rstor context code
 static lte_uint8_t s_rstor_ctx[] =
 {
+#ifdef __GNU_COMPATIBLE_UCONTEXT_LAYOUT
+ /*  0*/ 0x59,                                     //pop %rcx
+ /*  1*/ 0x48, 0x8d, 0x14, 0x0f,                   //lea (%rdi,%rcx,1),%rdx
+ /*  5*/ 0x48, 0x85, 0xc0,                         //test %rax,%rax
+ /*  8*/ 0x48, 0x0f, 0x44, 0xca,                   //cmove %rdx,%rcx
+ /*  c*/ 0x41, 0x58,                               //pop %r8
+ /*  e*/ 0x41, 0x59,                               //pop %r9
+ /* 10*/ 0x41, 0x5a,                               //pop %r10
+ /* 12*/ 0x41, 0x5b,                               //pop %r11
+ /* 14*/ 0x41, 0x5c,                               //pop %r12
+ /* 16*/ 0x41, 0x5d,                               //pop %r13
+ /* 18*/ 0x41, 0x5e,                               //pop %r14
+ /* 1a*/ 0x41, 0x5f,                               //pop %r15
+ /* 1c*/ 0x5f,                                     //pop %rdi
+ /* 1d*/ 0x5e,                                     //pop %rsi
+ /* 1e*/ 0x5d,                                     //pop %rbp
+ /* 1f*/ 0x5b,                                     //pop %rbx
+ /* 20*/ 0x5a,                                     //pop %rdx
+ /* 21*/ 0x48, 0x8b, 0x44, 0x24, 0x20,             //mov 0x20(%rsp),%rax
+ /* 26*/ 0x48, 0x89, 0x44, 0x24, 0x10,             //mov %rax,0x10(%rsp)
+ /* 2b*/ 0x48, 0x89, 0x4c, 0x24, 0x18,             //mov %rcx,0x18(%rsp)
+ /* 30*/ 0x58,                                     //pop %rax
+ /* 31*/ 0x59,                                     //pop %rcx
+ /* 32*/ 0x9d,                                     //popfq 
+ /* 33*/ 0xc2, 0x08, 0x00,                         //retq $0x8
+
+#else
  /*  0*/ 0x5b,                                     //pop %rbx
  /*  1*/ 0x48, 0x85, 0xc0,                         //test %rax,%rax
  /*  4*/ 0x75, 0x03,                               //jne <.rstor_ctx.l1>
@@ -67,6 +121,7 @@ static lte_uint8_t s_rstor_ctx[] =
  /* 28*/ 0x5b,                                     //pop %rbx
  /* 29*/ 0x9d,                                     //popfq
  /* 2a*/ 0xc3,                                     //retq
+#endif
 };
 
 static lte_uint32_t set_rstor_ctx_arg(lte_uint8_t* p, lte_uint32_t arg)
