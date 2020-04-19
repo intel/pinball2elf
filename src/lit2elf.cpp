@@ -801,19 +801,16 @@ int main(int argc, char** argv)
    }
 
    pinball_rel_t rel;
-   if(get_config().get_rel_file_name())
+
+   rel.load(get_config().get_rel_file_name());
+
+   for(auto& v : get_config().get_callbacks())
    {
-      rel.load(get_config().get_rel_file_name());
+      rel.insert(v.first, v.second.first, v.second.second);
+   }
 
-      for(auto it = rel.begin(); it != rel.end(); ++it)
-      {
-         auto r = get_config().get_callbacks().find(it->first);
-         if(r != get_config().get_callbacks().end())
-         {
-            it->second.cb_name = r->second.first;
-         } 
-      }
-
+   if(rel.begin() != rel.end())
+   {
       rel.print();
    }
 
@@ -884,14 +881,22 @@ int main(int argc, char** argv)
       {
          auto& info = ri->second;
 
+         lte_size_t bytes_to_copy = info.size;
+         if(bytes_to_copy < BR_REL_DISP32_SIZE)
+            bytes_to_copy = BR_REL_DISP32_SIZE;
+
          relocation::rcode_buffer_t code;
-         img.memcopy(code.data, addr, info.size);
+         lte_size_t bytes_copied = img.memcopy(code.data, addr, bytes_to_copy);
+         memset(code.data + bytes_copied, 0, bytes_to_copy - bytes_copied);
 
          jmp_disp_t* probe = (jmp_disp_t*)code.data;
          relocation r;
 
          auto range = info.get_disp_range(code.data, info.info[0].inst_size(), true);
 
+         // TODO: firstly try to relocate pieces of code replaced with probes such those
+         //       contain non jumps/calls instructions with RIP-relative addressing and
+         //       after them the rest
 
          if(range.first == 0 && range.second == 0)
          {
@@ -900,6 +905,7 @@ int main(int argc, char** argv)
             if(info.info[0].inst_size() < BR_REL_DISP32_SIZE)
                tolerance >>= (BR_REL_DISP32_SIZE - info.info[0].inst_size()) << 3;
 
+            // TODO: check that target address range is lower than upper limit defined in config    
             auto blck_rel32 = img.find_free_block(target_rel32, target_rel32 - tolerance,
                                                   target_rel32 + tolerance + BR_IDIR_ABS64_SIZE, BR_IDIR_ABS64_SIZE, SHF_TEXT);
             if(blck_rel32.second)
@@ -911,6 +917,7 @@ int main(int argc, char** argv)
                   rel_text_size += rsize;
 
                   std::cout << print_hexw(addr, 16) << ": 32-bit offset relocation [safe]" << std::endl
+                            << "    disp32       : " << print_hexw((lte_ssize_t)probe->disp32, 16) << std::endl
                             << "    target       : " << print_hexw(target_rel32, 16) << std::endl
                             << "    target safe  : " << print_hexw(blck_rel32.first, 16) << std::endl
                             << "    tolerance    : " << print_hexw(tolerance, 16) << std::endl
@@ -928,6 +935,7 @@ int main(int argc, char** argv)
                   rel_text_size += rsize;
 
                   std::cout << print_hexw(addr, 16) << ": 32-bit offset relocation [safe with tolerance]" << std::endl
+                            << "    disp32       : " << print_hexw((lte_ssize_t)probe->disp32, 16) << std::endl
                             << "    target       : " << print_hexw(target_rel32, 16) << std::endl
                             << "    target found : " << print_hexw(blck_rel32.first, 16) << std::endl
                             << "    tolerance    : " << print_hexw(tolerance, 16) << std::endl
@@ -944,6 +952,7 @@ int main(int argc, char** argv)
             else if(info.info[0].inst_size() >= BR_REL_DISP32_SIZE)
             {
                tolerance = BR_DISP32_MAX;
+               // TODO: check that target address range is lower than upper limit defined in config    
                auto blck_rel32 = img.find_free_block(target_rel32, target_rel32 - tolerance,
                                                      target_rel32 + tolerance + BR_IDIR_ABS64_SIZE, BR_IDIR_ABS64_SIZE, SHF_TEXT);
 
@@ -980,6 +989,7 @@ int main(int argc, char** argv)
             lte_addr_t target_hi = addr + range.first + BR_DISP32_MAX;
 
             lte_size_t rsize = r.get_code_max_size(code.data, BR_REL_DISP32_SIZE, &info);
+            // TODO: check that target address range is lower than upper limit defined in config    
             auto blck_rel32 = img.find_free_block(target_rel32, target_lo, target_hi, rsize, SHF_TEXT);
 
             ri->second.flags.nonrelocatable = 1;
@@ -1050,7 +1060,13 @@ int main(int argc, char** argv)
             auto& info = ri->second;
 
             relocation::rcode_buffer_t code;
-            img.memcopy(code.data, addr, info.size);
+
+            lte_size_t bytes_to_copy = info.size;
+            if(bytes_to_copy < BR_REL_DISP32_SIZE)
+               bytes_to_copy = BR_REL_DISP32_SIZE;
+
+            lte_size_t bytes_copied = img.memcopy(code.data, addr, bytes_to_copy);
+            memset(code.data + bytes_copied, 0, bytes_to_copy - bytes_copied);
 
             jmp_disp_t* probe = (jmp_disp_t*)code.data;
             relocation r;

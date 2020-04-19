@@ -329,6 +329,7 @@ lte_mempage_t* lte_memimg_t::get_page(lte_addr_t addr)
 
 std::pair<lte_addr_t, bool> lte_memimg_t::find_free_block(lte_addr_t addr, lte_addr_t addr_lo, lte_addr_t addr_hi, lte_size_t size, lte_uint32_t shflags)
 {
+   // TODO : add shflags check
    mem::segment<lte_addr_t> r(addr_lo, addr_hi);
 
    if(!r.in_range(addr))

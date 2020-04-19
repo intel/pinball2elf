@@ -871,6 +871,27 @@ bool pinball_rel_t::load(const char* fname)
    return true;
 }
 
+void pinball_rel_t::insert(lte_addr_t addr, const std::string& cb_name, lte_uint64_t inst_info)
+{
+   if(inst_info)
+   {
+      auto& rinfo = m_rinfo[addr];
+
+      rinfo.clear();
+      rinfo.push_back(inst_info & 0xff, inst_info >> 8);
+      rinfo.size = rinfo.info[0].inst_size();
+      rinfo.cb_name = cb_name;
+   }
+   else
+   {
+      auto rinfo = m_rinfo.find(addr);
+      if(rinfo != m_rinfo.end())
+      {
+         rinfo->second.cb_name = cb_name;
+      }
+   }
+}
+
 void pinball_rel_t::print()
 {
    for(auto it = begin(); it != end(); ++it)

@@ -101,7 +101,12 @@ void config_t::help_msg(const char* exe_name) const
              << "  -e FUNC, --process-exit-cbk FUNC name of process exit callback\n"
              << "  -t FUNC, --thread-cbk FUNC       name of thread start callback\n"
              << "  -I ADDR:FUNC[:INFO]              define instruction callback\n"
-             << "  -b ADDR                          insert break at address ADDR"
+             << "                                   INFO is comma separated list of following values:\n"
+             << "                                   instruction size\n" 
+             << "                                   offset of displacement field\n" 
+             << "                                   width of displacement field (0 if no displacement)\n" 
+             << "                                   instruction type (1 - jmp/call, 0 - otherwise)\n"
+             << "  -b ADDR                          insert break at address ADDR\n"
              << "  --cbk-stack-size NUM             callback stack size\n"
              << "  --[no-]stack-remap               enable(DEFAULT)/disable stack related pages remapping\n"
              << "  --[no-]startup                   enable(DEFAULT)/disable the startup code injection\n" 
@@ -251,12 +256,8 @@ static void get_magic_instr_tag(const char* arg, lte_uint32_t* tags, lte_uint32_
 static std::vector<std::string> split(const std::string& s, char delimiter)
 {
    std::vector<std::string> r;
-   std::string w;
    std::istringstream iss(s);
-   while (std::getline(iss, w, delimiter))
-   {
-      r.push_back(w);
-   }
+   for(std::string w; std::getline(iss, w, delimiter); r.push_back(w));
    return r;
 }
 
@@ -384,18 +385,41 @@ void config_t::init(int argc, char* argv[])
       {
          optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
 
-         std::vector<std::string> v =  split(argi[1], ':');
+         std::vector<std::string> v = split(argi[1], ':');
 
-         if(v.size() == 2)
+         if(v.size() == 2 || v.size() == 3)
          {
-            char* end;
+            char* end = nullptr;
             lte_uint64_t inst_addr = lte_strtoull(v[0].c_str(), &end, 16);
             if(!*end)
             {
                auto& info = m_callbacks[inst_addr];
                info.first = v[1];
                info.second = 0;
-               continue;
+               if(v.size() == 2)
+                  continue;
+
+               std::vector<std::string> vs = split(v[2], ',');
+               lte_uint32_t vi[4];
+               if(vs.size() == sizeof(vi)/sizeof(*vi))
+               {
+                  lte_uint32_t i;
+                  for(i = 0; i < sizeof(vi)/sizeof(*vi); ++i)
+                  {
+                     vi[i] =  lte_strtoull(vs[i].c_str(), &end, 10);
+                     if(*end || (vi[i] >> 8))
+                        break;
+                  }
+                  if(i == sizeof(vi)/sizeof(*vi))
+                  {
+                     // v[0] instruction size
+                     // v[1] displacement offset
+                     // v[2] displacement width
+                     // v[3] instruction type
+                     info.second = vi[1] | (vi[0] << 8) | (vi[2] << 16) | (vi[3] << 24); 
+                     continue;
+                  }
+               }
             }
          }
          LTE_ERRX("wrong callback format '%s'", argi[1]);
