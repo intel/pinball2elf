@@ -1,0 +1,161 @@
+pin-command-line:
+app-command-line: hello
+OSPid: 4786
+file_type: text
+fat: 1
+lit: 0
+user_name: hgpatil
+OS_info: Linux hdci2309 3.0.101-68-default #1 SMP Tue Dec 1 16:21:37 UTC 2015 (ed01a9f) intel64
+relogged: 0
+arch: x86_64
+num_static_threads: 1
+num_dynamic_threads: 1
+num_threads_started: 1
+log creation date/time: Wed Feb  8 08:24:26 2017
+log format version: 2.6
+charm revision: 76887
+linker_break_address: 0x7ffff7debb00
+data_page_size:  4096
+text_page_size:  4096
+smc_detected_info_contained:
+vdso_address: 0x7ffff7ffb000 0x7ffff7ffc000
+ip_entry:syscall: 0x7fffe3076996 L64
+ip_entry:syscall: 0x7fffe309b0e2 L64
+ip_entry:syscall: 0x7fffe309bf3e L64
+ip_entry:syscall: 0x7fffe30a6568 L64
+num_reg_descs:  132
+rax 0 8
+eax 1 4
+ax 2 2
+ah 3 1
+al 4 1
+rcx 5 8
+ecx 6 4
+cx 7 2
+ch 8 1
+cl 9 1
+rdx 10 8
+edx 11 4
+dx 12 2
+dh 13 1
+dl 14 1
+rbx 15 8
+ebx 16 4
+bx 17 2
+bh 18 1
+bl 19 1
+rsp 20 8
+esp 21 4
+sp 22 2
+spl 23 1
+rbp 24 8
+ebp 25 4
+bp 26 2
+bpl 27 1
+rsi 28 8
+esi 29 4
+si 30 2
+sil 31 1
+rdi 32 8
+edi 33 4
+di 34 2
+dil 35 1
+r8 36 8
+r8d 37 4
+r8w 38 2
+r8b 39 1
+r9 40 8
+r9d 41 4
+r9w 42 2
+r9b 43 1
+r10 44 8
+r10d 45 4
+r10w 46 2
+r10b 47 1
+r11 48 8
+r11d 49 4
+r11w 50 2
+r11b 51 1
+r12 52 8
+r12d 53 4
+r12w 54 2
+r12b 55 1
+r13 56 8
+r13d 57 4
+r13w 58 2
+r13b 59 1
+r14 60 8
+r14d 61 4
+r14w 62 2
+r14b 63 1
+r15 64 8
+r15d 65 4
+r15w 66 2
+r15b 67 1
+rip 68 8
+eip 69 4
+ip 70 2
+rflags 71 8
+eflags 72 4
+flags 73 2
+cs 74 2
+ds 75 2
+es 76 2
+ss 77 2
+fs 78 2
+gs 79 2
+fs-base 80 8
+gs-base 81 8
+fcw 82 2
+fsw 83 2
+ftw 84 1
+fop 85 2
+fpuip 86 4
+x87cs 87 2
+fpudp 88 4
+x87ds 89 2
+st0 90 10
+st1 91 10
+st2 92 10
+st3 93 10
+st4 94 10
+st5 95 10
+st6 96 10
+st7 97 10
+mxcsr 98 4
+xcr0 99 8
+XMM0 100 16
+YMM0 101 32
+XMM1 102 16
+YMM1 103 32
+XMM2 104 16
+YMM2 105 32
+XMM3 106 16
+YMM3 107 32
+XMM4 108 16
+YMM4 109 32
+XMM5 110 16
+YMM5 111 32
+XMM6 112 16
+YMM6 113 32
+XMM7 114 16
+YMM7 115 32
+XMM8 116 16
+YMM8 117 32
+XMM9 118 16
+YMM9 119 32
+XMM10 120 16
+YMM10 121 32
+XMM11 122 16
+YMM11 123 32
+XMM12 124 16
+YMM12 125 32
+XMM13 126 16
+YMM13 127 32
+XMM14 128 16
+YMM14 129 32
+XMM15 130 16
+YMM15 131 32
+ip_entry:image_load: 0x0004003d0
+ip_entry:image_load: 0x7fffe301a1f0
+ip_entry:image_load: 0x7ffff7df0cd0
