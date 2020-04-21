@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 #!/bin/bash
 myloc=`dirname $0`
 export PINBALL2ELFLOC=`dirname $myloc`/src
@@ -156,4 +154,3 @@ fi
     if [ $compression -eq 1 ]; then
        rm -rf $tmpbasedir
     fi
->>>>>>> Restored the  pinball2elfgracefulexit.sh script.

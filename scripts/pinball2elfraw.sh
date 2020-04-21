@@ -20,6 +20,7 @@ fi
     echo $BASE
     basedir=`dirname $BASE`
     basename=`basename $BASE`
+    tmpBASE=$BASE
     if test "$( find $basedir -name "$basename*reg.bz2" -print -quit)"
     then
         tmpbasedir="/tmp/$$.pinball"
