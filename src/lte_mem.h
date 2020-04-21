@@ -53,7 +53,7 @@ namespace mem
       segment_base() = default;
       segment_base(addr_type base) : _base(base) {}
 
-      
+
       addr_type getbase() const
       {
          return _base;
@@ -104,8 +104,6 @@ namespace mem
       auto& operator = (const std::pair<T1, T2>& p)
       {
          auto s = p.second - p.first;
-         static_assert(std::is_assignable<T, T1>::value);
-         static_assert(std::is_assignable<T, decltype(s)>::value);
          this->setbase(p.first);
          this->_size = s;
          return *this;
@@ -113,7 +111,7 @@ namespace mem
 
       bool empty() const { return _size == 0; }
 
-      // address ogf the first byte
+      // address of the first byte
       addr_type begin() const { return this->getbase(); }
       // address of the byte next to the last byte
       addr_type end() const { return this->linear_address(_size); }
@@ -134,7 +132,7 @@ namespace mem
       size_type size() const
       {
          return _size;
-      } 
+      }
    };
 
 };
