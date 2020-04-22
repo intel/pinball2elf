@@ -1,4 +1,5 @@
 #!/bin/bash
+
 myloc=`dirname $0`
 export PINBALL2ELFLOC=`dirname $myloc`/src
 export PINBALL2ELF=$PINBALL2ELFLOC"/pinball2elf"
@@ -42,6 +43,8 @@ fi
           cp -rs $srcfile $tmpbasedir/$obasename
         done
         compression=1
+    else
+        tmpBASE=$BASE
     fi
     magicval=0x1
     magicval2=0x2
