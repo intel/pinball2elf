@@ -239,7 +239,7 @@ bool pinball_arch_state_t::get_reg_value(lte_reg_enum_t id, lte_uint32_t size, c
    else
    {
       const char* reg_name = lte_reg_enum_t2str(id);
-      LTE_ERRX("%s not supported, (%s:%s)", reg_name, reg_name, str);
+      LTE_WARN("%s not supported, (%s:%s)", reg_name, reg_name, str);
       ok = false;
    }
 
