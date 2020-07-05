@@ -371,7 +371,10 @@ bool pinball_arch_state_t::load_arch_desc(const char* fname)
                continue;
             }
 
-            LTE_ERRAX(index > m_regs_info.size(), "wrong register index %s for %s [%s:%d]", line[1], line[0], fname, f.getlinesread());
+            //LTE_ERRAX(index > m_regs_info.size(), "wrong register index %s for %s [%s:%d]", line[1], line[0], fname, f.getlinesread());
+            if(index > m_regs_info.size())
+               m_regs_info.resize(index);
+
 
             if(m_regs_info[index].size && m_regs_info[index].index != index)
             {
