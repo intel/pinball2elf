@@ -137,6 +137,16 @@ static lte_addr_t litelfMarkDynallocPages(lte_memimg_t& memimg, lte_x86_arch_sta
       }
    }
 
+   for(auto it = pages.begin(); it != pages.end();)
+   {
+      auto pg = it++;
+      if(get_config().is_probe_addr(pg->second->va))
+      {
+         pg->second->flags &= ~(SHF_DYNALLOC | SHF_STACK);
+         pages.erase(pg);
+      }
+   }
+
    size_t va_size = (arch_state.get_arch() == ELFCLASS64) ? sizeof(lte_uint64_t) : sizeof(lte_uint32_t);
    for(std::map<lte_addr_t, lte_mempage_t*>::iterator it = pages.begin(); it != pages.end(); ++it)
    {

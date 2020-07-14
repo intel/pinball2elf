@@ -14,6 +14,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 END_LEGAL */
 #include "lte_config.h"
+#include "lte_memimg.h"
 #include <vector>
 #include <iostream>
 #include <string.h>
@@ -93,6 +94,7 @@ void config_t::help_msg(const char* exe_name) const
              << "  -e FUNC, --process-exit-cbk FUNC name of process exit callback\n"
              << "  -t FUNC, --thread-cbk FUNC       name of thread start callback\n"
              << "  -b ADDR                          insert break at address ADDR"
+             << "  --probe-addr ADDR                exclude address from list of remapped addresses\n"
              << "  --cbk-stack-size NUM             callback stack size\n"
              << "  --[no-]stack-remap               enable(DEFAULT)/disable stack related pages remapping\n"
              << "  --[no-]startup                   enable(DEFAULT)/disable the startup code injection\n" 
@@ -353,6 +355,16 @@ void config_t::init(int argc, char* argv[])
          if(!*end)
          {
             m_break_points.insert(addr);
+         }
+      }
+      else if(is_opt(argi[0], "--probe-addr"))
+      {
+         char* end;
+         optind = i = get_opt_arg_ind_or_die(i, argc, argi[0]);
+         uint64_t addr = lte_strtoull(argi[1], &end, 16);
+         if(!*end)
+         {
+            m_probes.insert(addr & ~(uint64_t)LTE_PAGE_SIZE);
          }
       }
       else if(is_opt(argi[0], "--magic2"))

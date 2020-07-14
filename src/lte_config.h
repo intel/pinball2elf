@@ -67,6 +67,7 @@ class config_t {
       char const* const* m_nonopt_argv;
       int m_nonopt_argc;
       std::set<uint64_t> m_break_points;
+      std::set<uint64_t> m_probes;
 
    public:
       config_t();
@@ -193,6 +194,11 @@ class config_t {
       auto& get_break_points()
       {
          return m_break_points;
+      }
+
+      bool is_probe_addr(uint64_t addr)
+      {
+            return (m_probes.find(addr) != m_probes.end());
       }
 };
 
