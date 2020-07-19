@@ -8,6 +8,7 @@ __lte_static char s_pid[] = " pid: ";
 __lte_static char s_tid[] = " tid: ";
 __lte_static char strp[] = "process_callback() [ inside ELFie] called. Num_threads: ";
 __lte_static char strt[] = "thread_callback() [ inside ELFie] called for thread ";
+__lte_static char s_replay[] = "Replaying system calls...\n ";
 
 void elfie_on_start(uint64_t num_threads, void* context)
 {
@@ -18,6 +19,8 @@ void elfie_on_start(uint64_t num_threads, void* context)
   lte_fsync(2);
   lte_diprintfe(1, num_threads, '\n');
   lte_fsync(1);
+  // do_replay_syscalls definition to be added by pinball2elf*.sh script 
+   if (do_replay_syscalls) replay_syscalls();
   return;
 }
 

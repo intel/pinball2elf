@@ -1,5 +1,4 @@
 #!/bin/bash
-
 myloc=`dirname $0`
 export PINBALL2ELFLOC=`dirname $myloc`/src
 export PINBALL2ELF=$PINBALL2ELFLOC"/pinball2elf"
@@ -21,6 +20,7 @@ fi
     echo $BASE
     basedir=`dirname $BASE`
     basename=`basename $BASE`
+    tmpBASE=$BASE
     if test "$( find $basedir -name "$basename*reg.bz2" -print -quit)"
     then
         tmpbasedir="/tmp/$$.pinball"
@@ -43,8 +43,6 @@ fi
           cp -rs $srcfile $tmpbasedir/$obasename
         done
         compression=1
-    else
-        tmpBASE=$BASE
     fi
     magicval=0x1
     magicval2=0x2

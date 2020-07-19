@@ -38,10 +38,12 @@ END_LEGAL */
 
 __lte_static char s_pid[] = " pid: ";
 __lte_static char s_tid[] = " tid: ";
-__lte_static char s_replay[] = "Replaying system calls...\n ";
+__lte_static char s_preopen[] = "Pre-opening files...\n ";
 __lte_static char strp[] = "process_callback() [ inside ELFie] called. Num_threads: ";
 __lte_static char strt[] = "thread ";
 
+void preopen_files(); // function to be added by pinball2elf*.sh scripts
+void set_heap(); // function to be added by pinball2elf*.sh scripts
 
 void elfie_on_start(uint64_t num_threads, void* context)
 {
@@ -60,8 +62,9 @@ void elfie_on_start(uint64_t num_threads, void* context)
    lte_sigaddset(&set, SIGSEGV);
    lte_pe_init(num_threads, 0/*SIGPEOVFL*/, &set);
 
-  // do_replay_syscalls definition to be added by pinball2elf*.sh script 
-   if (do_replay_syscalls) replay_syscalls();
+  // preopen_files()  and set_heap() definitions to be added by pinball2elf*.sh script 
+   preopen_files();
+   set_heap();
    lte_fsync(1);
 }
 
@@ -78,4 +81,5 @@ lte_td_t elfie_on_thread_start(uint64_t tnum, void* context, uint64_t icount)
    return lte_pe_get_thread_desc(tnum);
 }
 
-// replay_syscalls() to be added by pinball2elf*.sh script 
+// preopen_files() to be added by pinball2elf*.sh script 
+// set_heap() to be added by pinball2elf*.sh script 
