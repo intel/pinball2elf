@@ -47,6 +47,7 @@ fi
     magicval=0x1
     magicval2=0x2
     sscmark=0x111
+set -x
     time  $PINBALL2ELF --text-seg-flags WXA --data-seg-flags WXA --cbk-stack-size 102400 --modify-ldt -u unlimited -l 0x0 -i $icount_threshold --roi-start ssc:$sscmark --roi-start simics:$magicval --magic2 simics:$magicval2 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $BASE.elfie  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
     if [ $compression -eq 1 ]; then
        rm -rf $tmpbasedir

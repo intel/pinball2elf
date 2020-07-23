@@ -8,6 +8,16 @@ __lte_static char s_pid[] = " pid: ";
 __lte_static char s_tid[] = " tid: ";
 __lte_static char strp[] = "process_callback() [ inside ELFie] called. Num_threads: ";
 __lte_static char strt[] = "thread_callback() [ inside ELFie] called for thread ";
+__lte_static char s_preopen[] = "Pre-opening files...\n ";
+
+void preopen_files(); // function to be added by pinball2elf*.sh scripts
+void set_heap(); // function to be added by pinball2elf*.sh scripts
+
+void elfie_quit()
+{
+   lte_write(1, "ELFIE quit called\n", sizeof("ELFIE quit called\n")-1);
+   lte_exit_group(0);
+}
 
 void elfie_on_start(uint64_t num_threads, void* context)
 {
@@ -18,6 +28,9 @@ void elfie_on_start(uint64_t num_threads, void* context)
   lte_fsync(2);
   lte_diprintfe(1, num_threads, '\n');
   lte_fsync(1);
+  // preopen_files()  and set_heap() definitions to be added by pinball2elf*.sh script 
+   preopen_files();
+   set_heap();
   return;
 }
 
@@ -32,3 +45,6 @@ lte_td_t elfie_on_thread_start(uint64_t tnum, void* context, uint64_t icount)
    return NULL;
 }
 void __stack_chk_fail() {}
+
+// preopen_files() to be added by pinball2elf*.sh script 
+// set_heap() to be added by pinball2elf*.sh script 
