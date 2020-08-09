@@ -19,6 +19,7 @@ END_LEGAL */
 #include "lte_arch_state.h"
 #include "lte_entry_point.h"
 #include "lte_strtab.h"
+#include "lte_mem.h"
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -809,11 +810,6 @@ int main(int argc, char** argv)
       rel.insert(v.first, v.second.first, v.second.second);
    }
 
-   if(rel.begin() != rel.end())
-   {
-      rel.print();
-   }
-
    elf = elf_t::create(arch_state.get_arch());
    if(elf == NULL)
    {
@@ -868,6 +864,7 @@ int main(int argc, char** argv)
 
    lte_size_t rel_text_size = relocation::get_save_ctx_size() + relocation::get_rstor_ctx_size();
    lte_addr_t addr_max = get_config().get_user_space_limit(arch_state.get_arch());
+   lte_size_t num_relocations = 0;
 
    for(auto ri = rel.begin(); ri != rel.end(); ++ri)
    {
@@ -894,148 +891,95 @@ int main(int argc, char** argv)
 
          auto range = info.get_disp_range(code.data, info.info[0].inst_size(), true);
 
-         // TODO: firstly try to relocate pieces of code replaced with probes such those
-         //       contain non jumps/calls instructions with RIP-relative addressing and
-         //       after them the rest
+         std::pair<lte_addr_t, bool> rc(0, false);
+         lte_addr_t target = 0;
+         lte_addr_t target_lo = 0;
+         lte_addr_t target_hi = 0;
+         lte_ssize_t disp = 0;
+         lte_size_t rsize = 0;
 
-         if(range.first == 0 && range.second == 0)
+         r.clean();
+
+         // TODO: firstly try to relocate safely using 32-bit jmp with 8,16,24 and 32-bit disp tolerance
+         //       as well as using 8-bit jmp
+         if(info.info[0].inst_size() >=  BR_REL_DISP32_SIZE)
          {
-            lte_addr_t target_rel32 = addr + BR_REL_DISP32_SIZE + probe->disp32;
-            lte_addr_t tolerance = BR_DISP32_MAX;
-            if(info.info[0].inst_size() < BR_REL_DISP32_SIZE)
-               tolerance >>= (BR_REL_DISP32_SIZE - info.info[0].inst_size()) << 3;
+            target = addr + BR_REL_DISP32_SIZE;
+            target_lo = mem::addr_space<>::calc_addr(addr, range.second - BR_DISP32_MAX);
+            target_hi = mem::addr_space<>::calc_addr(addr, range.first + BR_DISP32_MAX);
+            disp = probe->disp32;
 
-            // TODO: check that target address range is lower than upper limit defined in config    
-            auto blck_rel32 = img.find_free_block(target_rel32, target_rel32 - tolerance,
-                                                  target_rel32 + tolerance + BR_IDIR_ABS64_SIZE, BR_IDIR_ABS64_SIZE, SHF_TEXT);
-            if(blck_rel32.second)
+            rsize = r.get_code_max_size(code.data, BR_REL_DISP32_SIZE, &info);
+            rc = img.find_free_block(target + disp, target_lo, target_hi, rsize, SHF_TEXT);
+            if(rc.second && mem::addr_space<>::is_user(rc.first))
             {
-               if(blck_rel32.first == target_rel32)
-               {
-                  lte_size_t rsize = r.get_code_max_size(code.data, 1, &info);
-                  assert(rsize);
-                  rel_text_size += rsize;
-
-                  std::cout << print_hexw(addr, 16) << ": 32-bit offset relocation [safe]" << std::endl
-                            << "    disp32       : " << print_hexw((lte_ssize_t)probe->disp32, 16) << std::endl
-                            << "    target       : " << print_hexw(target_rel32, 16) << std::endl
-                            << "    target safe  : " << print_hexw(blck_rel32.first, 16) << std::endl
-                            << "    tolerance    : " << print_hexw(tolerance, 16) << std::endl
-                            << "    1st inst len : " << info.info[0].inst_size() << std::endl;
-
-                  ri->second.flags.safe32 = 1;
-
-                  jmp_indirect_t probe_target;
-                  img.insert(blck_rel32.first, (lte_uint8_t*)&probe_target, sizeof(probe_target), SHF_TEXT|SHF_RELPROBE);
-               }
-               else
-               {
-                  lte_size_t rsize = r.get_code_max_size(code.data, info.info[0].inst_size(), &info);
-                  assert(rsize);
-                  rel_text_size += rsize;
-
-                  std::cout << print_hexw(addr, 16) << ": 32-bit offset relocation [safe with tolerance]" << std::endl
-                            << "    disp32       : " << print_hexw((lte_ssize_t)probe->disp32, 16) << std::endl
-                            << "    target       : " << print_hexw(target_rel32, 16) << std::endl
-                            << "    target found : " << print_hexw(blck_rel32.first, 16) << std::endl
-                            << "    tolerance    : " << print_hexw(tolerance, 16) << std::endl
-                            << "    1st inst len : " << info.info[0].inst_size() << std::endl;
-
-                  jmp_indirect_t probe_target;
-                  img.insert(blck_rel32.first, (lte_uint8_t*)&probe_target, sizeof(probe_target), SHF_TEXT|SHF_RELPROBE);
-               }
-
-               ri->second.flags.addr32 = 1;
-               ri->second.addr32 = blck_rel32.first;
-               ri->second.tolerance32 = tolerance;
-            }
-            else if(info.info[0].inst_size() >= BR_REL_DISP32_SIZE)
-            {
-               tolerance = BR_DISP32_MAX;
-               // TODO: check that target address range is lower than upper limit defined in config    
-               auto blck_rel32 = img.find_free_block(target_rel32, target_rel32 - tolerance,
-                                                     target_rel32 + tolerance + BR_IDIR_ABS64_SIZE, BR_IDIR_ABS64_SIZE, SHF_TEXT);
-
-
-               lte_size_t rsize = r.get_code_max_size(code.data, info.info[0].inst_size(), &info);
-               assert(rsize);
-               rel_text_size += rsize;
-
-               std::cout << print_hexw(addr, 16) << ": 32-bit offset relocation [usafe]" << std::endl
-                         << "    target       : " << print_hexw(target_rel32, 16) << std::endl
-                         << "    target found : " << print_hexw(blck_rel32.first, 16) << std::endl
-                         << "    tolerance    : " << print_hexw(tolerance, 16) << std::endl
-                         << "    1st inst len : " << info.info[0].inst_size() << std::endl;
-
-               jmp_indirect_t probe_target;
-               img.insert(blck_rel32.first, (lte_uint8_t*)&probe_target, sizeof(probe_target), SHF_TEXT|SHF_RELPROBE);
-
-               ri->second.flags.addr32 = 1;
-               ri->second.addr32 = blck_rel32.first;
-               ri->second.tolerance32 = tolerance;
+               ri->second.flags.addr = 2;
+               if(target + disp == rc.first)
+                  ri->second.flags.safe = 1;
+               ri->second.addr = rc.first;
             }
             else
             {
-               std::cout << print_hexw(addr, 16) << ": can not relocate" << std::endl;
-               ri->second.flags.nonrelocatable = 1;
+               rc = img.find_free_block(target, target_lo, target_hi, rsize, SHF_TEXT);
+               if(rc.second && mem::addr_space<>::is_user(rc.first))
+               {
+                  ri->second.flags.addr = 2;
+                  ri->second.addr = rc.first;
+               }
             }
+         }
+         else if(info.info[0].inst_size() >=  BR_REL_DISP8_SIZE)
+         {
+            target = addr + BR_REL_DISP8_SIZE;
+            target_lo = mem::addr_space<>::calc_addr(addr, range.second - BR_DISP8_MAX);
+            target_hi = mem::addr_space<>::calc_addr(addr, range.first + BR_DISP8_MAX);
+            disp = probe->disp8;
+
+            rsize = r.get_code_max_size(code.data, BR_REL_DISP8_SIZE, &info);
+            rc = img.find_free_block(target + disp, target_lo, target_hi, rsize, SHF_TEXT);
+            if(rc.second && mem::addr_space<>::is_user(rc.first))
+            {
+               ri->second.flags.addr = 1;
+               if(target + disp == rc.first)
+                  ri->second.flags.safe = 1;
+               ri->second.addr = rc.first;
+            }
+            else
+            {
+               rc = img.find_free_block(target, target_lo, target_hi, rsize, SHF_TEXT);
+               if(rc.second && mem::addr_space<>::is_user(rc.first))
+               {
+                  ri->second.flags.addr = 1;
+                  ri->second.addr = rc.first;
+               }
+            }
+         }
+
+         if(ri->second.flags.addr)
+         {
+            ri->second.rsize = rsize;
+            if(range.first | range.second)
+            {
+               // RIP-relative data transfer
+               ri->second.flags.mem = 1;
+            }
+            img.insert(ri->second.addr, r.get_code(), ri->second.rsize, SHF_TEXT);
+            ++num_relocations;
+
+            std::cout << print_hexw(addr, 16) << ": relocation" 
+                      << (ri->second.flags.safe ? " [safe]" : "")
+                      << (ri->second.flags.mem ? " [mem]" : "") << std::endl
+                      << "    target       : " << print_hexw(ri->second.addr, 16) << std::endl
+                      << "    1st inst len : " << info.info[0].inst_size() << std::endl;
          }
          else
          {
-            assert(info.info[0].inst_size() >= BR_REL_DISP32_SIZE);
-
-            lte_addr_t target_rel32 = addr + BR_REL_DISP32_SIZE + probe->disp32;
-            lte_addr_t target_lo = addr + range.second - BR_DISP32_MAX;
-            lte_addr_t target_hi = addr + range.first + BR_DISP32_MAX;
-
-            lte_size_t rsize = r.get_code_max_size(code.data, BR_REL_DISP32_SIZE, &info);
-            // TODO: check that target address range is lower than upper limit defined in config    
-            auto blck_rel32 = img.find_free_block(target_rel32, target_lo, target_hi, rsize, SHF_TEXT);
-
-            ri->second.flags.nonrelocatable = 1;
-            ri->second.flags.mem = 1;
-            
-            if(blck_rel32.second)
-            {
-               memset(r.get_code(), 0, rsize);
-
-               if(blck_rel32.first == target_rel32)
-               {
-                  // insert placeholder
-                  img.insert(blck_rel32.first, r.get_code(), rsize, SHF_TEXT);
-                  std::cout << print_hexw(addr, 16) << ": 32-bit offset relocation [mem safe]" << std::endl
-                            << "    target       : " << print_hexw(target_rel32, 16) << std::endl
-                            << "    target safe  : " << print_hexw(blck_rel32.first, 16) << std::endl
-                            << "    range        : " << print_hexw(target_lo, 16) << "-" << print_hexw(target_hi, 16) << std::endl
-                            << "    1st inst len : " << info.info[0].inst_size() << std::endl;
-
-                  ri->second.flags.safe32 = 1;
-               }
-               else
-               {
-                  // insert placeholder
-                  img.insert(blck_rel32.first, r.get_code(), rsize, SHF_TEXT);
-                  std::cout << print_hexw(addr, 16) << ": 32-bit offset relocation [mem safe with tolerance]" << std::endl
-                            << "    target       : " << print_hexw(target_rel32, 16) << std::endl
-                            << "    target found : " << print_hexw(blck_rel32.first, 16) << std::endl
-                            << "    range        : " << print_hexw(target_lo, 16) << "-" << print_hexw(target_hi, 16) << std::endl
-                            << "    1st inst len : " << info.info[0].inst_size() << std::endl;
-               }
-
-               ri->second.flags.nonrelocatable = 0;
-               ri->second.flags.addr32 = 1;
-               ri->second.addr32 = blck_rel32.first;
-            }
-
-            if(ri->second.flags.nonrelocatable)
-            {
-               std::cout << print_hexw(addr, 16) << ": can not relocate" << std::endl;
-            }
+            std::cout << print_hexw(addr, 16) << ": can not relocate" << std::endl;
          }
       }
    }
 
-   if(rel_text_size)
+   if(num_relocations)
    {
       elf_table_t rel_text;
 
@@ -1045,7 +989,6 @@ int main(int argc, char** argv)
       lte_addr_t rel_text_addr = img.find_free_block(rel_text_size, SHF_TEXT);
       lte_addr_t save_ctx_addr = rel_text_addr;
       lte_addr_t rstor_ctx_addr = rel_text_addr + relocation::get_save_ctx_size();
-      lte_addr_t target = rstor_ctx_addr + relocation::get_rstor_ctx_size();
 
       for(auto ri = rel.begin(); ri != rel.end(); ++ri)
       {
@@ -1055,75 +998,57 @@ int main(int argc, char** argv)
          auto addr = ri->first;
          auto pg = img.get_page(addr);
 
-         if(pg && !ri->second.flags.nonrelocatable)
+         if(!pg || !ri->second.flags.addr)
+            continue;
+
+         auto& info = ri->second;
+         relocation::rcode_buffer_t code;
+         lte_size_t bytes_to_copy = info.size;
+         if(bytes_to_copy < BR_REL_DISP32_SIZE)
+            bytes_to_copy = BR_REL_DISP32_SIZE;
+
+         lte_size_t bytes_copied = img.memcopy(code.data, addr, bytes_to_copy);
+         memset(code.data + bytes_copied, 0, bytes_to_copy - bytes_copied);
+
+         jmp_disp_t* probe = (jmp_disp_t*)code.data;
+         relocation r;
+         
+         lte_addr_t target = info.addr;
+         lte_size_t probe_size = 1;
+         if(info.flags.addr == 2)
          {
-            auto& info = ri->second;
-
-            relocation::rcode_buffer_t code;
-
-            lte_size_t bytes_to_copy = info.size;
-            if(bytes_to_copy < BR_REL_DISP32_SIZE)
-               bytes_to_copy = BR_REL_DISP32_SIZE;
-
-            lte_size_t bytes_copied = img.memcopy(code.data, addr, bytes_to_copy);
-            memset(code.data + bytes_copied, 0, bytes_to_copy - bytes_copied);
-
-            jmp_disp_t* probe = (jmp_disp_t*)code.data;
-            relocation r;
-
-            if(info.flags.mem)
+            // 32-bit displacement
+            if(info.flags.safe)
             {
-               if(info.flags.addr32)
-               {
-                  if(info.flags.safe32)
-                  {
-                     r.init(addr, info.addr32 - addr, code.data, 1, &info, save_ctx_addr, rstor_ctx_addr, 0);
-                     info.cb_addr = info.addr32 + r.get_cb_offset();
-                     info.flags.cb_addr = 1;
-                     probe->opcode = 0xe9;
-                     img.memcopy(addr, &probe->opcode, 1);
-                  }
-                  else
-                  {
-                     r.init(addr, info.addr32 - addr, code.data, BR_REL_DISP32_SIZE, &info, save_ctx_addr, rstor_ctx_addr, 0);
-                     info.cb_addr = info.addr32 + r.get_cb_offset();
-                     info.flags.cb_addr = 1;
-                     probe->opcode = 0xe9;
-                     probe->disp32 = (info.addr32 - (addr + BR_REL_DISP32_SIZE));
-                     img.memcopy(addr, &probe->opcode, BR_REL_DISP32_SIZE);
-                  }
-                  img.insert(info.addr32, r.get_code(), r.get_code_size(), SHF_TEXT);
-               }
+               r.init(addr, target - addr, code.data, 1, &info, save_ctx_addr, rstor_ctx_addr, 0);
             }
-            else if(info.flags.addr32)
+            else
             {
-               if(info.flags.safe32)
-               {
-                  img.memcopy(ri->second.addr32 + 6, (lte_uint8_t*)&target, 8);
-                  r.init(addr, target - addr, code.data, 1, &info, save_ctx_addr, rstor_ctx_addr, 0);
-                  info.cb_addr = target + r.get_cb_offset();
-                  info.flags.cb_addr = 1;
-
-                  rel_text.push_back(r.get_code(), r.get_code_size());
-                  target += r.get_code_size();
-                  probe->opcode = 0xe9;
-                  img.memcopy(addr, &probe->opcode, 1);
-               }
-               else
-               {
-                  img.memcopy(ri->second.addr32 + 6, (lte_uint8_t*)&target, 8);
-                  r.init(addr, target - addr, code.data, info.info[0].inst_size(), &info, save_ctx_addr, rstor_ctx_addr, 0);
-                  info.cb_addr = target + r.get_cb_offset();
-                  info.flags.cb_addr = 1;
-
-                  rel_text.push_back(r.get_code(), r.get_code_size());
-                  target += r.get_code_size();
-                  probe->opcode = 0xe9;
-                  probe->disp32 = (ri->second.addr32 - (addr + BR_REL_DISP32_SIZE));
-                  img.memcopy(addr, &probe->opcode, BR_REL_DISP32_SIZE);
-               }
+               probe_size = BR_REL_DISP32_SIZE;
+               r.init(addr, target - addr, code.data, BR_REL_DISP32_SIZE, &info, save_ctx_addr, rstor_ctx_addr, 0);
+               probe->disp32 = (ri->second.addr - (addr + BR_REL_DISP32_SIZE));
             }
+            probe->opcode = 0xe9;
          }
+         else
+         {
+            // 8-bit displacement
+            if(info.flags.safe)
+            {
+               r.init(addr, target - addr, code.data, 1, &info, save_ctx_addr, rstor_ctx_addr, 0);
+            }
+            else
+            {
+               probe_size = BR_REL_DISP8_SIZE;
+               r.init(addr, target - addr, code.data, BR_REL_DISP8_SIZE, &info, save_ctx_addr, rstor_ctx_addr, 0);
+               probe->disp8 = (info.addr - (addr + BR_REL_DISP8_SIZE));
+            }
+            probe->opcode = 0xeb;
+         }
+         img.memcopy(addr, &probe->opcode, probe_size);
+         info.cb_addr = target + r.get_cb_offset();
+         info.flags.cb_addr = 1;
+         img.insert(info.addr, r.get_code(), r.get_code_size(), SHF_TEXT);
       }
       img.insert(rel_text_addr, (lte_uint8_t*)rel_text.table_ptr(), rel_text.table_size(), SHF_TEXT);
    }

@@ -127,6 +127,15 @@ class relocation {
       lte_size_t init(lte_addr_t addr, lte_ssize_t offset, lte_uint8_t* code, lte_size_t size, text_rinfo_t* rinfo,
                       lte_addr_t save_ctx_addr, lte_addr_t rstor_ctx_addr, lte_addr_t cb_addr);
 
+      void clean() 
+      { 
+         #ifdef DEBUG
+         memset(_code_buffer, 0xcc, sizeof(_code_buffer));
+         #else
+         memset(_code_buffer, 0, sizeof(_code_buffer));
+         #endif
+      }
+
       static lte_uint8_t* get_save_ctx_code();
       static lte_uint8_t* get_rstor_ctx_code();
       static lte_size_t get_save_ctx_size();

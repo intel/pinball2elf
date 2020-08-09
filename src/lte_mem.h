@@ -42,6 +42,32 @@ namespace mem
 
    typedef _Page<4096> page;
 
+   template<lte_size_t _AddrWidth = 48>
+   class addr_space {
+   public:
+      static lte_addr_t min_user() { return 0; }
+      static lte_addr_t max_user() { return (((lte_addr_t)1) << (_AddrWidth-1)) - 1; }
+      static lte_addr_t min_krnl() { return (~(lte_addr_t)0) << (_AddrWidth-1); }
+      static lte_addr_t max_krnl() { return ~(lte_addr_t)0; }
+
+      static bool is_user(lte_addr_t addr) { return min_user() <= addr && addr <= max_user(); }
+      static bool is_kernel(lte_addr_t addr) { return min_krnl() <= addr && addr <= max_krnl(); }
+
+      static bool is_canonical(lte_addr_t addr)
+      { 
+         addr ^= (((int64_t)addr) >> 63);
+         return addr <= max_user(); 
+      }
+      static lte_addr_t calc_addr(lte_addr_t addr, lte_ssize_t offs)
+      {
+         lte_addr_t r = addr + offs;
+         if(!is_user(r))
+         {
+            return (is_user(addr) && (offs < 0)) ? min_user() : max_user();
+         }   
+         return r;
+      }
+   };
 
    template<typename T>
    class segment_base {

@@ -21,7 +21,7 @@ END_LEGAL */
 const lte_addr_t default_user_space_limit_32 = 0xffffffff;
 const lte_addr_t default_user_space_limit_64 = 0;//unlimited
 const lte_addr_t default_remap_limit = LTE_MAXVAL(lte_addr_t);
-const  lte_uint32_t default_cbk_stack_size = 0x400000; // 4MB
+const lte_uint32_t default_cbk_stack_size = 0x400000; // 4MB
 
 config_t& get_config()
 {

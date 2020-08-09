@@ -146,24 +146,22 @@ class pinball_mem_layout_t {
       void print();
 };
 
-class pinball_rel_t {
+class pinball_rel_t
+{
    public:
-      struct rel_info_t : text_rinfo_t {
-         lte_addr_t addr8 {0};
-         lte_addr_t tolerance8 {0};
-         lte_addr_t addr32 {0};
-         lte_addr_t tolerance32 {0};
+      struct rel_info_t : text_rinfo_t
+      {
+         lte_addr_t addr {0};
+         lte_size_t rsize {0};
          lte_addr_t cb_addr {0};
          std::string cb_name;
-         struct {
-            lte_uint32_t addr8:1;
-            lte_uint32_t addr32:1;
-            lte_uint32_t safe8:1;
-            lte_uint32_t safe32:1;
+         struct
+         {
+            lte_uint32_t addr:2;
+            lte_uint32_t safe:1;
             lte_uint32_t mem:1;
-            lte_uint32_t nonrelocatable:1;
             lte_uint32_t cb_addr:1;
-         } flags {0, 0, 0, 0, 0, 0, 0};
+         } flags {0, 0, 0, 0};
 
          rel_info_t() = default;
       };
