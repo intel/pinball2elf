@@ -25,6 +25,7 @@ END_LEGAL */
 #include <sys/wait.h>
 #include <unistd.h>
 #include <unordered_map>
+#include <cstdlib>
 
 #define DEBUG_LIT2ELF
 #ifdef DEBUG_LIT2ELF
@@ -645,12 +646,12 @@ static int litelfLink(unsigned char e_class, const char* foname, const char* fsn
          argv.push_back(flibs[i]);
       argv.push_back(NULL);
 
-      #define DEBUG_LD
-      #ifdef DEBUG_LD
-      for(int i = 0; argv[i]; ++i)
-         std::cout<<argv[i]<<' ';
-      std::cout<<'\n';
-      #endif
+      if(get_config().is_verbose())
+      {
+         for(int i = 0; argv[i]; ++i)
+            std::cout<<argv[i]<<' ';
+         std::cout<<'\n';
+      }
 
       execv(argv[0], const_cast<char* const*>(&argv[0]));
       exit(127);
@@ -1217,7 +1218,13 @@ int main(int argc, char** argv)
    {
       if(rela_tabs.size())
       {
-         mktemp_template tmp("p2e-elfie.XXXXXX");
+         const char* p2e_temp = std::getenv("P2E_TEMP");
+         if(p2e_temp && !lte_dir_exists(p2e_temp))
+         {
+            LTE_WARN("P2E_TEMP set to '%s' is not eccessible", p2e_temp);
+            p2e_temp = nullptr;
+         }
+         mktemp_template tmp("p2e-elfie.XXXXXX", p2e_temp);
          mktemp_tempfile tmpfiles[3];
 
          // During linking of pinball object file with other obect files and libraries ld gathers all the .text/.data
