@@ -200,7 +200,7 @@ fi
     cp  /tmp/PCcount_callback.$$.c PCcount_callback.c
     gcc -g -I$PINBALL2ELFLOC/lib -c /tmp/PCcount_callback.$$.c -o /tmp/PCcount_callback.$$.o
 set -x
-    time  $PINBALL2ELF -V --text-seg-flags WXA --data-seg-flags WXA --cbk-stack-size 102400 --modify-ldt -u unlimited -l 0x0 $IINFO -i $icount_threshold --roi-start ssc:$sscmark --roi-start simics:$magicval --magic2 simics:$magicval2 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $DEST -p elfie_on_start  -t elfie_on_thread_start   /tmp/PCcount_callback.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
+    time  $PINBALL2ELF -V --text-seg-flags WXA --data-seg-flags WXA --cbk-stack-size 102400 --modify-ldt -u unlimited -l 0x0 $IINFO -i $icount_threshold --roi-start ssc:$sscmark --roi-start simics:$magicval --magic2 simics:$magicval2 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $DEST -p on_start  -t on_thread_start   /tmp/PCcount_callback.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
 set +x
     cp  /tmp/PCcount_callback.$$.c PCcount_callback.c
     rm  /tmp/PCcount_callback.$$.*
