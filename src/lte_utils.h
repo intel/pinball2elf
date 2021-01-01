@@ -98,6 +98,16 @@ void lte_trace(const char* file, int line, const char* fmt, ...);
 #include <string>
 #include <regex>
 
+#include <sys/types.h>
+#include <dirent.h>
+
+static inline bool lte_dir_exists(const char* name)
+{
+   DIR* d = opendir(name);
+   closedir(d);
+   return (d != nullptr);
+}
+
 class mktemp_template {
    protected:
       std::string m_path;

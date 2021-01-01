@@ -4,6 +4,14 @@ export PINBALL2ELFLOC=`dirname $myloc`/src
 export PINBALL2ELF=$PINBALL2ELFLOC"/pinball2elf"
 export INST=`dirname $myloc`/instrumentation
 ulimit -s unlimited
+
+export TMPDIR=/tmp
+if [ ! -z $P2E_TEMP ];
+then
+   export TMPDIR=$P2E_TEMP
+fi
+echo "TMPDR $TMPDIR"
+
 ERROR()
 {
     echo "Usage: $0 pinball "
@@ -23,7 +31,7 @@ fi
     tmpBASE=$BASE
     if test "$( find $basedir -name "$basename*reg.bz2" -print -quit)"
     then
-        tmpbasedir="/tmp/$$.pinball"
+        tmpbasedir="$TMPDIR/$$.pinball"
         tmpBASE="$tmpbasedir/$basename"
         mkdir -p $tmpbasedir
         for regfile in   $BASE*.reg.bz2

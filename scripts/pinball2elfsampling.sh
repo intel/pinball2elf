@@ -4,6 +4,14 @@ export PINBALL2ELFLOC=`dirname $myloc`/src
 export PINBALL2ELF=$PINBALL2ELFLOC"/pinball2elf"
 #export PINBALL2ELF=$PINBALL2ELFLOC"/pinball2elfd"
 export INST=`dirname $myloc`/instrumentation
+
+export TMPDIR=/tmp
+if [ ! -z $P2E_TEMP ];
+then
+   export TMPDIR=$P2E_TEMP
+fi
+echo "TMPDR $TMPDIR"
+
 ERROR()
 {
   echo "Usage : " $0 " pinball filename-prefix <scalltrace> <pinball_start_global_icount>"
@@ -162,7 +170,7 @@ fi
     tmpBASE=$BASE
     if test "$( find $basedir -name "$basename*reg.bz2" -print -quit)"
     then
-        tmpbasedir="/tmp/$$.pinball"
+        tmpbasedir="$TMPDIR/$$.pinball"
         tmpBASE="$tmpbasedir/$basename"
         mkdir -p $tmpbasedir
         for regfile in   $BASE*.reg.bz2
@@ -215,22 +223,22 @@ fi
    
        printf "\n"
        next} 
-     {print $0}'  > /tmp/readperf_sampling_callbacks.$$.c
+     {print $0}'  > $TMPDIR/readperf_sampling_callbacks.$$.c
     if [ ! -z $strace ];
     then
-        STRACE $strace $psgi /tmp/readperf_sampling_callbacks.$$.c
+        STRACE $strace $psgi $TMPDIR/readperf_sampling_callbacks.$$.c
     else
-      echo "void replay_syscalls(){}" >> /tmp/readperf_sampling_callbacks.$$.c
+      echo "void replay_syscalls(){}" >> $TMPDIR/readperf_sampling_callbacks.$$.c
     fi
-    gcc -g -I$PINBALL2ELFLOC/lib -c /tmp/readperf_sampling_callbacks.$$.c -o /tmp/readperf_sampling_callbacks.$$.o
+    gcc -g -I$PINBALL2ELFLOC/lib -c $TMPDIR/readperf_sampling_callbacks.$$.c -o $TMPDIR/readperf_sampling_callbacks.$$.o
     magicval=0x1
     magicval2=0x2
     sscmark=0x111
     sscmark2=0x222
 
-    time  $PINBALL2ELF --text-seg-flags WXA --data-seg-flags WXA --cbk-stack-size 102400 --modify-ldt -u unlimited --roi-start ssc:$sscmark  --roi-start simics:$magicval --magic2 simics:$magicval2 -l 0x0 -i 0 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $BASE.readperf.elfie -p elfie_on_start -e elfie_on_exit -t elfie_on_thread_start /tmp/readperf_sampling_callbacks.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
-    cp  /tmp/readperf_sampling_callbacks.$$.c readperf_sampling_callbacks.c
-    rm /tmp/readperf_sampling_callbacks.$$.c /tmp/readperf_sampling_callbacks.$$.o
+    time  $PINBALL2ELF --text-seg-flags WXA --data-seg-flags WXA --cbk-stack-size 102400 --modify-ldt -u unlimited --roi-start ssc:$sscmark  --roi-start simics:$magicval --magic2 simics:$magicval2 -l 0x0 -i 0 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $BASE.readperf.elfie -p elfie_on_start -e elfie_on_exit -t elfie_on_thread_start $TMPDIR/readperf_sampling_callbacks.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
+    cp  $TMPDIR/readperf_sampling_callbacks.$$.c readperf_sampling_callbacks.c
+    rm $TMPDIR/readperf_sampling_callbacks.$$.c $TMPDIR/readperf_sampling_callbacks.$$.o
     if [ $compression -eq 1 ]; then
        rm -rf $tmpbasedir
     fi

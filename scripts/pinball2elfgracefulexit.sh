@@ -4,6 +4,14 @@ export PINBALL2ELFLOC=`dirname $myloc`/src
 export PINBALL2ELF=$PINBALL2ELFLOC"/pinball2elf"
 export INST=`dirname $myloc`/instrumentation
 ulimit -s unlimited
+
+export TMPDIR=/tmp
+if [ ! -z $P2E_TEMP ];
+then
+   export TMPDIR=$P2E_TEMP
+fi
+echo "TMPDR $TMPDIR"
+
 ERROR()
 {
     echo "Usage: $0 pinball"
@@ -78,7 +86,7 @@ fi
     tmpBASE=$BASE
     if test "$( find $basedir -name "$basename*reg.bz2" -print -quit)"
     then
-        tmpbasedir="/tmp/$$.pinball"
+        tmpbasedir="$TMPDIR/$$.pinball"
         tmpBASE="$tmpbasedir/$basename"
         mkdir -p $tmpbasedir
         for regfile in   $BASE*.reg.bz2
@@ -111,13 +119,13 @@ fi
     magicval=0x1
     magicval2=0x2
     sscmark=0x111
-    cp $INST//graceful_exit_callbacks.c /tmp/graceful_exit_callbacks.$$.c
+    cp $INST//graceful_exit_callbacks.c $TMPDIR/graceful_exit_callbacks.$$.c
     if [ ! -z $sysstate ];
     then
-      PREOPEN $sysstate /tmp/graceful_exit_callbacks.$$.c
+      PREOPEN $sysstate $TMPDIR/graceful_exit_callbacks.$$.c
     else
       echo "WARNING: No sysstate directory exists for $BNAME"
-      echo "void preopen_files(){}" >>  /tmp/graceful_exit_callbacks.$$.c
+      echo "void preopen_files(){}" >>  $TMPDIR/graceful_exit_callbacks.$$.c
     fi
     if [ ! -z $sysstate ];
     then
@@ -125,18 +133,18 @@ fi
       then
         BRKfile=`find $sysstate -name "BRK.log"`
         echo "BRKFILE $BRKfile"
-        SETHEAP $BRKfile /tmp/readperfrdtsc.$$.c
+        SETHEAP $BRKfile $TMPDIR/graceful_exit_callbacks.$$.c
       else
-        echo "void set_heap(){}" >>  /tmp/graceful_exit_callbacks.$$.c
+        echo "void set_heap(){}" >>  $TMPDIR/graceful_exit_callbacks.$$.c
       fi
     else
-        echo "void set_heap(){}" >>  /tmp/graceful_exit_callbacks.$$.c
+        echo "void set_heap(){}" >>  $TMPDIR/graceful_exit_callbacks.$$.c
     fi
-    cp  /tmp/graceful_exit_callbacks.$$.c graceful_exit_callbacks.c
-    gcc -g -I$PINBALL2ELFLOC/lib -c /tmp/graceful_exit_callbacks.$$.c -o /tmp/graceful_exit_callbacks.$$.o
-    time  $PINBALL2ELF --text-seg-flags WXA --data-seg-flags WXA --cbk-stack-size 102400 --modify-ldt -u unlimited -l 0x0 -i $icount_threshold --roi-start ssc:$sscmark --roi-start simics:$magicval --magic2 simics:$magicval2 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $DEST -p elfie_on_start  -t elfie_on_thread_start   /tmp/graceful_exit_callbacks.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
-    cp  /tmp/graceful_exit_callbacks.$$.c graceful_exit_callbacks.c
-    rm  /tmp/graceful_exit_callbacks.$$.*
+    cp  $TMPDIR/graceful_exit_callbacks.$$.c graceful_exit_callbacks.c
+    gcc -g -I$PINBALL2ELFLOC/lib -c $TMPDIR/graceful_exit_callbacks.$$.c -o $TMPDIR/graceful_exit_callbacks.$$.o
+    time  $PINBALL2ELF --text-seg-flags WXA --data-seg-flags WXA --cbk-stack-size 102400 --modify-ldt -u unlimited -l 0x0 -i $icount_threshold --roi-start ssc:$sscmark --roi-start simics:$magicval --magic2 simics:$magicval2 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $DEST -p elfie_on_start  -t elfie_on_thread_start   $TMPDIR/graceful_exit_callbacks.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
+    cp  $TMPDIR/graceful_exit_callbacks.$$.c graceful_exit_callbacks.c
+    rm  $TMPDIR/graceful_exit_callbacks.$$.*
 #set +x
     if [ $compression -eq 1 ]; then
        rm -rf $tmpbasedir
