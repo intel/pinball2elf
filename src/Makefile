@@ -36,6 +36,7 @@ COMPILER=gnu
 
 ifeq ($(COMPILER),gnu)
   GCCVERSIONGTEQ7 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 7)
+  GCCVERSIONGTEQ9 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 9)
   CC = gcc
   CXX = g++
   CXX_LINKER = $(CXX)
@@ -60,6 +61,10 @@ ifeq ($(COMPILER),gnu)
                          -Wno-multichar -Wno-parentheses -Wno-strict-aliasing   \
                          -Wno-sequence-point -Wno-switch                        \
                          -Wno-write-strings -Wno-format
+  ifeq "$(GCCVERSIONGTEQ9)" "1"
+  WARN_SHOULD_BE_FIXED +=   -Wno-address-of-packed-member
+  endif
+
   WARNINGS     = -Wall -Wextra -Werror $(WARN_SHOULD_BE_FIXED) -fdiagnostics-show-option
   C_WARNINGS   = -Wnested-externs -Wdeclaration-after-statement
   CXX_WARNINGS = -Wno-invalid-offsetof -Wno-deprecated
