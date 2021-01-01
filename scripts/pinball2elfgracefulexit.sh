@@ -127,10 +127,10 @@ fi
         echo "BRKFILE $BRKfile"
         SETHEAP $BRKfile /tmp/readperfrdtsc.$$.c
       else
-        echo "void set_heap(){}" >>  /tmp/readperfrdtsc.$$.c
+        echo "void set_heap(){}" >>  /tmp/graceful_exit_callbacks.$$.c
       fi
     else
-        echo "void set_heap(){}" >>  /tmp/readperfrdtsc.$$.c
+        echo "void set_heap(){}" >>  /tmp/graceful_exit_callbacks.$$.c
     fi
     cp  /tmp/graceful_exit_callbacks.$$.c graceful_exit_callbacks.c
     gcc -g -I$PINBALL2ELFLOC/lib -c /tmp/graceful_exit_callbacks.$$.c -o /tmp/graceful_exit_callbacks.$$.o
