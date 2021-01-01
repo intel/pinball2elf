@@ -14,8 +14,20 @@ echo "TMPDR $TMPDIR"
 
 ERROR()
 {
-    echo "Usage: $0 pinball"
+    echo "Usage: $0 pinball <scalltrace> <pinball_start_global_icount>"
     exit 1
+}
+
+
+SETENV()
+{
+  cfile=$1
+
+  cat $INST/environ.c | awk '
+  BEGIN {flag=0}
+  /END_LEGAL/ {flag=1; next}
+      {if(flag) print $0}
+  ' >> $cfile
 }
 
 SETHEAP()
@@ -72,12 +84,15 @@ PREOPEN()
   echo "}" >> $cfile
 }
 
-
 if  [ $# -lt 1 ];  then
     echo "Not enough arguments!"
     ERROR
 fi
     BASE=$1
+if  [ $# -eq 3 ];  then
+    strace=$2
+    psgi=$3 # pinball start global icount
+fi
     icount_threshold=1; #include threads with at least 1 instruction executed.
     compression=0
     echo $BASE
@@ -107,25 +122,23 @@ fi
         done
         compression=1
     fi
-
+    magicval=0x1
+    magicval2=0x2
+    sscmark=0x111
     sysstate=""
     BNAME=`basename $BASE`
-    DEST=$BASE.elfie
     if test "$( find $basedir -name "$basename*.sysstate" -print -quit)"
     then
       sysstate=`find $basedir -name "$basename*.sysstate"`
       DEST=$sysstate/workdir/$BNAME.elfie
     fi
-    magicval=0x1
-    magicval2=0x2
-    sscmark=0x111
-    cp $INST//graceful_exit_callbacks.c $TMPDIR/graceful_exit_callbacks.$$.c
+    cp $INST/basic_callbacks.c $TMPDIR/basic_callbacks.$$.c
     if [ ! -z $sysstate ];
     then
-      PREOPEN $sysstate $TMPDIR/graceful_exit_callbacks.$$.c
+      PREOPEN $sysstate $TMPDIR/basic_callbacks.$$.c
     else
       echo "WARNING: No sysstate directory exists for $BNAME"
-      echo "void preopen_files(){}" >>  $TMPDIR/graceful_exit_callbacks.$$.c
+      echo "void preopen_files(){}" >>  $TMPDIR/basic_callbacks.$$.c
     fi
     if [ ! -z $sysstate ];
     then
@@ -133,19 +146,18 @@ fi
       then
         BRKfile=`find $sysstate -name "BRK.log"`
         echo "BRKFILE $BRKfile"
-        SETHEAP $BRKfile $TMPDIR/graceful_exit_callbacks.$$.c
+        SETHEAP $BRKfile $TMPDIR/basic_callbacks.$$.c
       else
-        echo "void set_heap(){}" >>  $TMPDIR/graceful_exit_callbacks.$$.c
+        echo "void set_heap(){}" >>  $TMPDIR/basic_callbacks.$$.c
       fi
     else
-        echo "void set_heap(){}" >>  $TMPDIR/graceful_exit_callbacks.$$.c
+        echo "void set_heap(){}" >>  $TMPDIR/basic_callbacks.$$.c
     fi
-    cp  $TMPDIR/graceful_exit_callbacks.$$.c graceful_exit_callbacks.c
-    gcc -g -I$PINBALL2ELFLOC/lib -c $TMPDIR/graceful_exit_callbacks.$$.c -o $TMPDIR/graceful_exit_callbacks.$$.o
-    time  $PINBALL2ELF --text-seg-flags WXA --data-seg-flags WXA --cbk-stack-size 102400 --modify-ldt -u unlimited -l 0x0 -i $icount_threshold --roi-start ssc:$sscmark --roi-start simics:$magicval --magic2 simics:$magicval2 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $DEST -p elfie_on_start  -t elfie_on_thread_start   $TMPDIR/graceful_exit_callbacks.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
-    cp  $TMPDIR/graceful_exit_callbacks.$$.c graceful_exit_callbacks.c
-    rm  $TMPDIR/graceful_exit_callbacks.$$.*
-#set +x
+    SETENV $TMPDIR/basic_callbacks.$$.c
+    gcc -g -I$PINBALL2ELFLOC/lib -c $TMPDIR/basic_callbacks.$$.c -o $TMPDIR/basic_callbacks.$$.o
+    time  $PINBALL2ELF --text-seg-flags WXA --data-seg-flags WXA --cbk-stack-size 102400 --modify-ldt -u unlimited --roi-start ssc:$sscmark  --roi-start simics:$magicval --magic2 simics:$magicval2 -l 0x0 -i 0 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $DEST -p elfie_on_start -t elfie_on_thread_start $TMPDIR/basic_callbacks.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
+    cp  $TMPDIR/basic_callbacks.$$.c basic_callbacks.c
+    rm  $TMPDIR/basic_callbacks.$$.*
     if [ $compression -eq 1 ]; then
        rm -rf $tmpbasedir
     fi

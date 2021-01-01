@@ -20,12 +20,7 @@ END_LEGAL */
 # define _GNU_SOURCE 1
 #endif
 
-#include <stdint.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <linux/perf_event.h>
+#include <ucontext.h>
 #include "lte_lc.h"
 
 #define __lte_data    __attribute__ ((section (".data")))
@@ -41,7 +36,7 @@ END_LEGAL */
 #define SIGPEOVFL      SIGPEOVFL_MAX
 
 typedef void* lte_td_t;
-typedef void (*lte_pe_cbk_t)(lte_td_t td, int, siginfo_t*, void*);
+typedef void (*lte_pe_cbk_t)(lte_td_t, int, siginfo_t*, void*);
 
 uint64_t lte_pe_get_num_threads();
 lte_td_t lte_pe_get_thread_desc(uint64_t tnum);
@@ -62,8 +57,12 @@ uint64_t lte_pe_read_thread_icount(lte_td_t td);
 int lte_pe_init(uint64_t num_threads, int sigovfl, const void* sigset);
 // initiazile sampling for the thread specified by tnum; on error returns 0
 lte_td_t lte_pe_init_thread_sampling(uint64_t tnum, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback);
-// initiazile sampling for the thread specified by tnum; on error returns 0
-lte_td_t lte_pe_init_process_sampling(uint64_t tnum, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback, int perf_fd);
+
+lte_td_t lte_pe_init_thread_sampling_icount(uint64_t tnum, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback, uint64_t wicount_period, uint64_t wicount_max, lte_pe_cbk_t wcallback); 
+
+// initiazile bp sampling for the thread specified by tnum; on error returns 0
+lte_td_t lte_pe_init_thread_sampling_bp(uint64_t tnum, uint64_t bp_addr, uint64_t bp_period, uint64_t bpcount_max, lte_pe_cbk_t callback, uint64_t wbp_addr, uint64_t wbp_period, uint64_t wbpcount_max, lte_pe_cbk_t wcallback); 
+
 // sets icount for the thread specified by tnum; on error returns 0
 lte_td_t lte_pe_set_thread_end(uint64_t tnum, uint64_t icount);
 // returns perf counter file descriptor for non-zero td. "-1" if td is 0.
