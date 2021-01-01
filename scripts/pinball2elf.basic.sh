@@ -127,6 +127,7 @@ fi
     sscmark=0x111
     sysstate=""
     BNAME=`basename $BASE`
+    DEST=$BASE.elfie
     if test "$( find $basedir -name "$basename*.sysstate" -print -quit)"
     then
       sysstate=`find $basedir -name "$basename*.sysstate"`

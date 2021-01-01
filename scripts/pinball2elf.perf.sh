@@ -190,6 +190,16 @@ SET_ROICOUNTS()
   fi
 }
 
+
+SET_ROICOUNTS_NOEVENTS()
+{
+  pinball=$1
+  tid=$2
+  etid=$3
+  endicount=`grep "inscount" $pinball.$tid.result | awk '{print $NF}'`
+  icount_arr[$etid]=$endicount #count from the beginning
+}
+
 if  [ $# -lt 2 ];  then
     ERROR
 fi
@@ -237,6 +247,8 @@ fi
          if [ -e $pinball.event_icount.$tid.txt ];
          then
           SET_ROICOUNTS $pinball $tid $etid
+         else
+          SET_ROICOUNTS_NOEVENTS $pinball $tid $etid
          fi
       fi
     done
