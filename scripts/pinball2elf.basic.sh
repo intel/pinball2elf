@@ -14,7 +14,7 @@ echo "TMPDR $TMPDIR"
 
 ERROR()
 {
-    echo "Usage: $0 pinball <scalltrace> <pinball_start_global_icount>"
+    echo "Usage: $0 pinball" 
     exit 1
 }
 
