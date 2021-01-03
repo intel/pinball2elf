@@ -19,8 +19,9 @@
 
 This shows:
 
-####Creation and running of *basic* elfie
+###Creation and running of *basic* elfie
 ------------------------------------------
+
 ```
   Running ../../scripts/pinball2elf.basic.sh pinball.st/log_0
   Running ./pinball.st/log_0.elfie
@@ -33,7 +34,7 @@ thread_callback() [ inside ELFie] called for thread 0
 Hello world 1
 ---------------------
 ```
-#### Creation and running of *perf* elfie
+### Creation and running of *perf* elfie
 -----------------------------------------
 ```
   Running ../../scripts/pinball2elf.perf.sh pinball.st/log_0
@@ -55,7 +56,7 @@ Will set affinity using core_base: 0
 Hello world 1
     graceful exit SUCCESS
 ```
-#### Show performance counters reported in *st.0.perf.txt*
+### Show performance counters reported in *st.0.perf.txt*
 ----------------------------------------------------------
 ```
   Performance counters reported in st.0.perf.txt
