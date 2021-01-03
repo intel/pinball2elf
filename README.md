@@ -18,7 +18,8 @@
     `./testST.sh`
 
 This shows:
-### Creation and running of *basic* elfie
+####Creation and running of *basic* elfie
+------------------------------------------
 ```
   Running ../../scripts/pinball2elf.basic.sh pinball.st/log_0
   Running ./pinball.st/log_0.elfie
@@ -31,7 +32,8 @@ thread_callback() [ inside ELFie] called for thread 0
 Hello world 1
 ---------------------
 ```
-### Creation and running of *perf* elfie
+#### Creation and running of *perf* elfie
+-----------------------------------------
 ```
   Running ../../scripts/pinball2elf.perf.sh pinball.st/log_0
   export ELFIE_PERFLIST=0:0,0:1,1:1
@@ -52,7 +54,8 @@ Will set affinity using core_base: 0
 Hello world 1
     graceful exit SUCCESS
 ```
-### Show performance counters reported in *st.0.perf.txt*
+#### Show performance counters reported in *st.0.perf.txt*
+----------------------------------------------------------
 ```
   Performance counters reported in st.0.perf.txt
 ROI start: TSC 74744470196596112
@@ -66,6 +69,7 @@ Thread end: TSC 74744470232782076
 ROI end: TSC 74744470232944672
 hw_cpu_cycles:49566 hw_instructions:4647 sw_task_clock:184142 
 ```
+--------------------------------------------------------
 ## ELFie creation basics
 The tool *pinball2elf*, supports three types of callbacks:
 ```
@@ -143,6 +147,7 @@ A watch thread is first created, it creates the main application thread and wait
 
 Graceful exit : YES: either icount of pc+count used for exiting each thread.
 ```
+--------------------------------------------------------
 ## Input to *pinball2elf*
 
 User-level checkpoints known as *pinballs* are input to the *pinbll2elf* tool. These are created using the [PinPlay](http://wwww.pinplay.org) tool kit. A *pinball* is a collection of files capturing the execution state of a "Region of Interest" (ROI) from an application execution. A typical sequence of commands to generate and test a *pinball* suitable for *pinball2elf* is shown below:
