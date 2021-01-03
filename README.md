@@ -18,8 +18,7 @@
     `./testST.sh`
 
 This shows:
-
-###Creation and running of *basic* elfie
+### Creation and running of *basic* elfie
 ------------------------------------------
 
 ```
