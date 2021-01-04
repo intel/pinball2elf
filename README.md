@@ -85,6 +85,7 @@ scripts/
 ├── pinball2elf.perf.sh
 └── pinball2elf.sim.sh
 ```
+ These script use the environment variable P2E\_TEMP as the location (default '/tmp') of the directory to use to store intermediate temporary files.
 ### Instrumentation code
 ```
 instrumentation/
@@ -97,6 +98,8 @@ instrumentation/
 environ.c : supports the processing of ELFIE_* environment variables.
 set_heap.c : supports the handling of brk() system call behavior based on SYSSTATE
 ```
+ A custom callback file is created for each ELFie using the instrumentation files above. That file is copied to the current working directory for debugging/viewing.
+
 ### ELFie types supported
 1. **basic ELFie**
 ```
@@ -107,7 +110,10 @@ callbacks used:
 -p elfie_on_start: outputs informational messages; processes SYSSTATE
 -t elfie_on_thread_start: outputs informational messages
 Graceful exit : NO
+
+ Customized basic_callbacks.c file is copied to the working directory for debugging/viewing.
 ```
+
 2. **Simulator(sim) ELFie**
 ```
 script: pinball2elf.sim.sh
@@ -115,9 +121,12 @@ script: pinball2elf.sim.sh
 instrumentation: sim_callbacks.c
 callbacks used:
 -p elfie_on_start: processes SYSSTATE; checks if ELFIE_COREBASE is a positive number
--t elfie_on_thread_start:  sets affinity for theread etid to 'COREBASE+apptid'
+-t elfie_on_thread_start:  sets affinity for thread etid to 'COREBASE+apptid'
 Graceful exit : NO ( the simulator is supposed to end ELFie execution)
+
+ Customized sim_callbacks.c  file is copied to the working directory for debugging/viewing.
 ```
+
 3. **Performance monitoring(perf) ELFie**
 ```
 script: pinball2elf.perf.sh
@@ -126,7 +135,7 @@ instrumentation: perf_callbacks.c
 callbacks used:
 -p elfie_on_start: processes SYSSTATE; checks if ELFIE_COREBASE is a positive number
                      Opens per-thread perf stats files
--t elfie_on_thread_start:  sets affinity for theread etid to 'COREBASE+apptid'
+-t elfie_on_thread_start:  sets affinity for thread etid to 'COREBASE+apptid'
                  * sets up warmup/simulation end handlers
                  * Uses "ELFIE_WARMUP" to decide whether to use warmup.
                  * Uses "ELFIE_PCCONT" to decide how to end warmup/simulation regions
@@ -139,15 +148,18 @@ callbacks used:
                       HW counter: 1 --> PERF_COUNT_HW_CPU_INSTRUCTIONS
                       SW counter: 0 --> PERF_COUNT_SW_CPU_CLOCK
                        ... <see perf_event.h:'enum perf_hw_ids' and 'enum perf_sw_ids')          
--e elfie_on_exit: runs in the watch thread, outputs final performance counter 
+-e elfie_on_exit: runs in the monitor thread, outputs final performance counter 
                   values for each application thread. 
 
-A watch thread is first created, it creates the main application thread and waits
+A monitor thread is first created, it creates the main application thread and waits
  for it to exit. The main application thread creates other application threads if
   needed
 
 Graceful exit : YES: either icount of pc+count used for exiting each thread.
+
+ Customized perf_callbacks.c  file is copied to the working directory for debugging/viewing.
 ```
+
 --------------------------------------------------------
 ## Input to *pinball2elf*
 
@@ -261,3 +273,26 @@ Addr  9decb1  global_addrcount: 34070
 Addr  9decb1 tid: 3 addrcount 4368
 
 ```
+## Debugging ELFies
+
+The  pages  inside an ELFie containing  application code  are  marked  as  not loadable hence  tools,  such  as  the Gnu  debugger  (gdb),  can  not  *see*  application  pages  inside an  ELFie  right  away  after  the  initial  loading  of  an  ELFie. For  setting  a breakpoint  at  an  application  instruction,  the suggested  way  is  to  first  break  at *on\_elfie\_on\_start()* where all application pages are guaranteed to be in memory and then  set  a  breakpoint  at  the  desired  application  address(hex). Symbolic  debugging  is  currently  not  supported  with  ELFies although pinball2elf can be extended to add application debug information  for  symbolic  debugging. ELFie  generation  scripts  make  sure  debug  information  does exist for ELFie callback routines hence they can be debugged symbolically.  For  debugging  multi-threaded  ELFies  with  gdb,  first  doing  a  *set  detach-on-fork off* followed by *break elfie\_on\_thread\_start’ and using *info inferior* and *inferior N* commands works well.
+
+## Open issues
+ ELFie execution sometimes ends pre-maturely (before reaching the expected instruction
+ count). This could be because of many reasons:
+ 1. The execution diverges and tries to access code/data pages that were not captured.
+ 2. Operating system state is not fully captured for the system calls in the region to work correctly.
+
+A common workaround is to find an *alternate* region which will hopefully avoid these issues. 
+Contributions/suggestions to solve these open issues are most welcome!
+
+## Project ideas
+ 1. Help solve 'open issues' listed above.
+  1.1. A more robust SYSSTATE capture: extend pintools/SYSSTATE/pinball-sysstate.cpp
+  1.2 Extend pinball with OS state using ideas from [CRIU](http://www.criu.org)
+
+ 2. Symbolic debugging of application code inside an ELFie 
+     Generate debug information for the application code inside the ELFie file.
+ 
+ 3. Similar tools for Windows and MacOS.
+    Pinball generation is supported for Windows and MacOS as well. Consider writing a converter from pinball to *Portable Executable (PE)* format on Windows and *Mach-O* format on MacOS.
