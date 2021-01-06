@@ -35,6 +35,7 @@ COMPILER=gnu
 #COMPILER=ms
 
 ifeq ($(COMPILER),gnu)
+  GCCVERSIONGTEQ5 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 5)
   GCCVERSIONGTEQ7 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 7)
   GCCVERSIONGTEQ9 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 9)
   CC = gcc
@@ -101,6 +102,11 @@ CXX_COMPILE_DBG = $(CXX) $(COPT) $(CXXFLAGS) $(CXXFLAGS_DBG)
 CC_COMPILE_DBG  = $(CC)  $(COPT) $(CCFLAGS) $(CCFLAGS_DBG)
 CXX_LINK_DBG    = $(CXX_LINKER) $(LDFLAGS) $(LDFLAGS_DBG)
 LINK_DBG        = $(CXX_LINK_DBG)
+
+  ifeq "$(GCCVERSIONGTEQ5)" "1"
+    CXXFLAGS +=  -std=c++14 $(IOPT).
+    CCFLAGS  +=  -std=c++14 $(IOPT).
+  endif
 
 ######################################################################
 
