@@ -3,18 +3,22 @@ export ELFIE_COREBASE=0
 if [ -e ../../scripts ];
 then
     SCRIPTLOC=../../scripts/
-    GESCRIPT=$SCRIPTLOC/pinball2elf.perf.sh
+    BASICSCRIPT=$SCRIPTLOC/pinball2elf.basic.sh
+    PERFSCRIPT=$SCRIPTLOC/pinball2elf.perf.sh
 else
-  which pinball2elf.perf.sh
+  which pinball2elf.basic.sh
   if [ $? -ne 0 ];
   then
-    echo "**Please put PINBALL2ELFKIT/scripts in your PATH"
+    echo "  Please put PINBALL2ELFKIT/scripts in your PATH"
     exit
   fi
-  GESCRIPT=`which pinball2elf.perf.sh`
+  BASICSCRIPT=`which pinball2elf.basic.sh`
+  PERFSCRIPT=`which pinball2elf.perf.sh`
 fi
+
 pinball=pinball.mt/log_0
 pbname=`basename $pinball`
+
 echo "  Running $PERFSCRIPT $pinball" 
 $PERFSCRIPT $pinball mt > /dev/null 2>&1
 if ! test "$( find . -name "$pbname.perf.elfie" -print -quit)"

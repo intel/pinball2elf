@@ -41,7 +41,7 @@ then
     echo "  Deleting old elfie: $elfie" 
     rm -f $elfie
 fi
-echo "  Running $PERFSCRIPT $pinball" 
+echo "  Running $PERFSCRIPT $pinball st" 
 $PERFSCRIPT $pinball st > /dev/null 2>&1
 if ! test "$( find . -name "$pbname.perf.elfie" -print -quit)"
 then
