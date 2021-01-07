@@ -1,19 +1,43 @@
 -- start of image-load-log --------------------------------------- 
 -- end of image-load-log ----------------------------------------- 
 copy_images: 0
-inscount: 119
-OSTid: 20159
+OSTid: 174795
 log_entries: 0
 ended_before_sc: 0
-num_logged_true_dependencies (RAW): 5
-num_logged_false_dependencies (WAR/WAW): 2
+num_logged_true_dependencies (RAW): 14
+num_logged_false_dependencies (WAR/WAW): 9
 num_signals 0
-num_syscalls: 0
-ip_type: init_pc: 0x55b30d5666e1
-ip_type:last_pc: 0x55b30d565a70
+num_syscalls: 11
+inscount: 3436
+ip_type:last_pc: 0x2aaac07dc8c4
+internal_repcount: 0
+ip_type: init_pc: 0x2aaac0b517b1
 restore_text_pc: 1
-ip_entry:restoretext_pc: 0x55b30d565a10
-ip_entry:restoretext_pc: 0x55b30d5666ad
-ip_entry:restoretext_pc: 0x55b30d5666e1
-ip_entry:restoretext_pc: 0x7f2d614ccb47
-ip_entry:restoretext_pc: 0x7f2d614ccb55
+ip_entry:restoretext_pc: 0x2aaac0ac22a5
+ip_entry:restoretext_pc: 0x2aaac0ab9fcc
+ip_entry:restoretext_pc: 0x2aaac07da170
+ip_entry:restoretext_pc: 0x2aaac07da1e0
+ip_entry:restoretext_pc: 0x2aaac07da230
+ip_entry:restoretext_pc: 0x2aaac0ae7efe
+ip_entry:restoretext_pc: 0x2aaac07da2d0
+ip_entry:restoretext_pc: 0x2aaac0ab9591
+ip_entry:restoretext_pc: 0x2aaac0a91860
+ip_entry:restoretext_pc: 0x2aaac07daf2a
+ip_entry:restoretext_pc: 0x2aaac0abba27
+ip_entry:restoretext_pc: 0x2aaac0a918a0
+ip_entry:restoretext_pc: 0x2aaac0ab721c
+ip_entry:restoretext_pc: 0x2aaac0ab7250
+ip_entry:restoretext_pc: 0x2aaac07dc7c7
+ip_entry:restoretext_pc: 0x2aaac07dc7fe
+ip_entry:restoretext_pc: 0x2aaac0ab729e
+ip_entry:restoretext_pc: 0x2aaac0ae988f
+ip_entry:restoretext_pc: 0x2aaac0ab72eb
+ip_entry:restoretext_pc: 0x2aaac0ab7321
+ip_entry:restoretext_pc: 0x000401040
+ip_entry:restoretext_pc: 0x000401050
+ip_entry:restoretext_pc: 0x000401080
+ip_entry:restoretext_pc: 0x2aaac0ab98c9
+ip_entry:restoretext_pc: 0x2aaac0b517b1
+ip_entry:restoretext_pc: 0x2aaac0b517eb
+ip_entry:restoretext_pc: 0x2aaac0ab9b6c
+ip_entry:restoretext_pc: 0x2aaac0abcbe9

@@ -1,23 +1,34 @@
-pin-command-line: /home/hgpatil/pinplay-drdebug-NUS-9-6-2019-pin-3.10-97971-gc5e41af74-gcc-linux/intel64/bin/pinbin -p32 /home/hgpatil/pinplay-drdebug-NUS-9-6-2019-pin-3.10-97971-gc5e41af74-gcc-linux/ia32/bin/pinbin -xyzzy -virtual_segments 1 -reserve_memory whole_program.cversion/dijkstra.cversion_19652.address -t /home/hgpatil/pinplay-drdebug-NUS-9-6-2019-pin-3.10-97971-gc5e41af74-gcc-linux/extras/dcfg/bin/intel64/dcfg-driver.so -replay -xyzzy -replay:basename whole_program.cversion/dijkstra.cversion_19652 -replay:playout 0 -replay:strace -dcfg -dcfg:read_dcfg 1 -log:fat -log -xyzzy -log:regions:in dijkstra.cversion_19652.global.pinpoints.in.csv -log:regions:out dijkstra.cversion_19652.global.pinpoints.out.csv -log:regions:warmup 0 -log:regions:prolog 0 -log:regions:epilog 0 -log:basename dijkstra.cversion_19652.pp/dijkstra.cversion_19652 -log:compressed bzip2 -log:mt 1
-app-command-line: ./dijkstra_openmp.gcc
-OSPid: 20149
+pin-command-line: /nfs/mmdc/disks/tpi4/proj/ThreadPoints/NUSingapore/pinplay-7-3-2020-pin-3.13-98189-g60a6ef199-gcc-linux/intel64/bin/pinbin -p32 /nfs/mmdc/disks/tpi4/proj/ThreadPoints/NUSingapore/pinplay-7-3-2020-pin-3.13-98189-g60a6ef199-gcc-linux/ia32/bin/pinbin -follow_execv -t /nfs/mmdc/disks/tpi4/proj/ThreadPoints/NUSingapore/pinplay-7-3-2020-pin-3.13-98189-g60a6ef199-gcc-linux/extras/pinplay/bin/intel64/pinplay-driver.so -log -xyzzy -log:basename pinball/log -log:mt 1 -log:compressed bzip2 -log:region_id -log:whole_image -log:pages_early 1 -log:control start:exit_func:__clone:count3
+app-command-line: thread 4
+OSPid: 174776
 fat: 1
 lit: 0
 user_name: hgpatil
-OS_info: Linux vs-sycl-1 4.15.0-47-generic #50-Ubuntu SMP Wed Mar 13 10:44:52 UTC 2019 intel64
-relogged: 1
+OS_info: Linux hdcr0109 3.0.101-108.87-default #1 SMP Fri Feb 22 16:42:57 UTC 2019 (10e85a8) intel64
+relogged: 0
 arch: x86_64
-num_static_threads: 8
-num_dynamic_threads: 8
-num_threads_started: 8
-log creation date/time: Mon Sep  9 17:31:09 2019
-log format version: 2.10
-charm revision: 97971
+num_static_threads: 5
+num_dynamic_threads: 3
+num_threads_started: 5
+log creation date/time: Wed Jan  6 19:39:11 2021
+log format version: 2.11
+charm revision: 98189
+linker_break_address: 0x2aaaaaab9b70
 data_page_size:  4096
 text_page_size:  4096
-vdso_address: 0x7ffe8cbb4000 0x7ffe8cbb6000
-ip_entry:syscall: 0x7f2d614dc17d L64
-num_reg_descs:  210
+vdso_address: 0x2aaaaaaca000 0x2aaaaaacb000
+ip_entry:syscall: 0x2aaac07dc793 L64
+ip_entry:syscall: 0x2aaac07dc8c4 L64
+ip_entry:syscall: 0x2aaac07dcfe3 L64
+ip_entry:syscall: 0x2aaac0b1ea56 L64
+ip_entry:syscall: 0x2aaac0b43d8b L64
+ip_entry:syscall: 0x2aaac0b4e398 L64
+ip_entry:syscall: 0x2aaac0b4e3f5 L64
+ip_entry:syscall: 0x2aaac0b4e485 L64
+ip_entry:syscall: 0x2aaac0b517af L64
+ip_entry:syscall: 0x2aaac0b5e92c L64
+ip_entry:syscall: 0x2aaac0b5e95d L64
+num_reg_descs:  132
 rax 0 8
 eax 1 4
 ax 2 2
@@ -120,118 +131,38 @@ mxcsr 98 4
 xcr0 99 8
 XMM0 100 16
 YMM0 101 32
-ZMM0 102 64
-XMM1 103 16
-YMM1 104 32
-ZMM1 105 64
-XMM2 106 16
-YMM2 107 32
-ZMM2 108 64
-XMM3 109 16
-YMM3 110 32
-ZMM3 111 64
-XMM4 112 16
-YMM4 113 32
-ZMM4 114 64
-XMM5 115 16
-YMM5 116 32
-ZMM5 117 64
-XMM6 118 16
-YMM6 119 32
-ZMM6 120 64
-XMM7 121 16
-YMM7 122 32
-ZMM7 123 64
-XMM8 124 16
-YMM8 125 32
-ZMM8 126 64
-XMM9 127 16
-YMM9 128 32
-ZMM9 129 64
-XMM10 130 16
-YMM10 131 32
-ZMM10 132 64
-XMM11 133 16
-YMM11 134 32
-ZMM11 135 64
-XMM12 136 16
-YMM12 137 32
-ZMM12 138 64
-XMM13 139 16
-YMM13 140 32
-ZMM13 141 64
-XMM14 142 16
-YMM14 143 32
-ZMM14 144 64
-XMM15 145 16
-YMM15 146 32
-ZMM15 147 64
-XMM16 148 16
-YMM16 149 32
-ZMM16 150 64
-XMM17 151 16
-YMM17 152 32
-ZMM17 153 64
-XMM18 154 16
-YMM18 155 32
-ZMM18 156 64
-XMM19 157 16
-YMM19 158 32
-ZMM19 159 64
-XMM20 160 16
-YMM20 161 32
-ZMM20 162 64
-XMM21 163 16
-YMM21 164 32
-ZMM21 165 64
-XMM22 166 16
-YMM22 167 32
-ZMM22 168 64
-XMM23 169 16
-YMM23 170 32
-ZMM23 171 64
-XMM24 172 16
-YMM24 173 32
-ZMM24 174 64
-XMM25 175 16
-YMM25 176 32
-ZMM25 177 64
-XMM26 178 16
-YMM26 179 32
-ZMM26 180 64
-XMM27 181 16
-YMM27 182 32
-ZMM27 183 64
-XMM28 184 16
-YMM28 185 32
-ZMM28 186 64
-XMM29 187 16
-YMM29 188 32
-ZMM29 189 64
-XMM30 190 16
-YMM30 191 32
-ZMM30 192 64
-XMM31 193 16
-YMM31 194 32
-ZMM31 195 64
-K0 196 8
-K1 197 8
-K2 198 8
-K3 199 8
-K4 200 8
-K5 201 8
-K6 202 8
-K7 203 8
-b0 204 16
-b1 205 16
-b2 206 16
-b3 207 16
-bndcfgu 208 8
-bndstatus 209 8
-ip_entry:image_load: 0x55b30d565c1a
-ip_entry:image_load: 0x7f2d60cbbc80
-ip_entry:image_load: 0x7f2d60ecae50
-ip_entry:image_load: 0x7f2d611a0970
-ip_entry:image_load: 0x7f2d614d0e90
-ip_entry:image_load: 0x7f2d77098750
+XMM1 102 16
+YMM1 103 32
+XMM2 104 16
+YMM2 105 32
+XMM3 106 16
+YMM3 107 32
+XMM4 108 16
+YMM4 109 32
+XMM5 110 16
+YMM5 111 32
+XMM6 112 16
+YMM6 113 32
+XMM7 114 16
+YMM7 115 32
+XMM8 116 16
+YMM8 117 32
+XMM9 118 16
+YMM9 119 32
+XMM10 120 16
+YMM10 121 32
+XMM11 122 16
+YMM11 123 32
+XMM12 124 16
+YMM12 125 32
+XMM13 126 16
+YMM13 127 32
+XMM14 128 16
+YMM14 129 32
+XMM15 130 16
+YMM15 131 32
+ip_entry:image_load: 0x00040135c
+ip_entry:image_load: 0x2aaaaaabed20
+ip_entry:image_load: 0x2aaac07dbf88
+ip_entry:image_load: 0x2aaac0ab7370
 smc_granularity: 128

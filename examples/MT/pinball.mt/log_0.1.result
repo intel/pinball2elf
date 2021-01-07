@@ -1,19 +1,59 @@
 -- start of image-load-log --------------------------------------- 
 -- end of image-load-log ----------------------------------------- 
 copy_images: 0
-inscount: 106
-OSTid: 20156
+OSTid: 174783
 log_entries: 0
 ended_before_sc: 0
-num_logged_true_dependencies (RAW): 5
-num_logged_false_dependencies (WAR/WAW): 3
+num_logged_true_dependencies (RAW): 21
+num_logged_false_dependencies (WAR/WAW): 10
 num_signals 0
-num_syscalls: 0
-ip_type: init_pc: 0x55b30d5664f4
-ip_type:last_pc: 0x7f2d614dc0a8
+num_syscalls: 8
+inscount: 6115
+ip_type:last_pc: 0x2aaac07dc8c4
+internal_repcount: 0
+ip_type: init_pc: 0x2aaac0b5e92e
 restore_text_pc: 1
-ip_entry:restoretext_pc: 0x55b30d565a10
-ip_entry:restoretext_pc: 0x55b30d5666ad
-ip_entry:restoretext_pc: 0x7f2d614ccb47
-ip_entry:restoretext_pc: 0x7f2d614ccb55
-ip_entry:restoretext_pc: 0x55b30d5664f4
+ip_entry:restoretext_pc: 0x2aaac0ac22b1
+ip_entry:restoretext_pc: 0x2aaac07d9fc6
+ip_entry:restoretext_pc: 0x2aaac0b5e92e
+ip_entry:restoretext_pc: 0x2aaac0b5e936
+ip_entry:restoretext_pc: 0x2aaac0b5e939
+ip_entry:restoretext_pc: 0x2aaac0b5e970
+ip_entry:restoretext_pc: 0x2aaaaaab417b
+ip_entry:restoretext_pc: 0x2aaac0ae7d6d
+ip_entry:restoretext_pc: 0x2aaac0ab9fcc
+ip_entry:restoretext_pc: 0x2aaaaaab41f6
+ip_entry:restoretext_pc: 0x2aaac07da1e0
+ip_entry:restoretext_pc: 0x2aaac07da1eb
+ip_entry:restoretext_pc: 0x2aaac07da230
+ip_entry:restoretext_pc: 0x2aaac0ae7efe
+ip_entry:restoretext_pc: 0x2aaac0ab9591
+ip_entry:restoretext_pc: 0x2aaac07daf2a
+ip_entry:restoretext_pc: 0x2aaaaaab8c2e
+ip_entry:restoretext_pc: 0x2aaac0abba27
+ip_entry:restoretext_pc: 0x2aaac0a918a0
+ip_entry:restoretext_pc: 0x2aaaaaab4422
+ip_entry:restoretext_pc: 0x2aaaaaab8c59
+ip_entry:restoretext_pc: 0x2aaaaaab4455
+ip_entry:restoretext_pc: 0x2aaac07dc80f
+ip_entry:restoretext_pc: 0x2aaac0ae988f
+ip_entry:restoretext_pc: 0x2aaaaaab44c5
+ip_entry:restoretext_pc: 0x2aaaaaab8cf3
+ip_entry:restoretext_pc: 0x2aaaaaabed50
+ip_entry:restoretext_pc: 0x2aaac0ab72eb
+ip_entry:restoretext_pc: 0x2aaaaaabed7e
+ip_entry:restoretext_pc: 0x2aaac0ab7321
+ip_entry:restoretext_pc: 0x2aaac0ab73aa
+ip_entry:restoretext_pc: 0x000401040
+ip_entry:restoretext_pc: 0x2aaac0ab73d7
+ip_entry:restoretext_pc: 0x000401080
+ip_entry:restoretext_pc: 0x2aaac0ab98c9
+ip_entry:restoretext_pc: 0x2aaac0ab74df
+ip_entry:restoretext_pc: 0x2aaac0ab759b
+ip_entry:restoretext_pc: 0x000401258
+ip_entry:restoretext_pc: 0x2aaaaaab9c10
+ip_entry:restoretext_pc: 0x2aaac0ab7779
+ip_entry:restoretext_pc: 0x2aaac0abcbf5
+ip_entry:restoretext_pc: 0x2aaaaaab4a25
+ip_entry:restoretext_pc: 0x2aaaaaac16f0
+ip_entry:restoretext_pc: 0x2aaaaaac16f2

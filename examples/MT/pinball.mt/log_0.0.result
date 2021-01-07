@@ -1,32 +1,45 @@
 -- start of image-load-log --------------------------------------- 
-Loading /home/hgpatil/NUSingapore/dijkstra-global-perthread-6-26-2019/global/icount/dijkstra_openmp.gcc(0x55b30d565000:0x55b30d566cc6)
-Loading /lib64/ld-linux-x86-64.so.2(0x7f2d77081000:0x7f2d770a7c22)
-Loading /usr/lib/x86_64-linux-gnu/libgomp.so.1(0x7f2d614c3000:0x7f2d616f164e)
-Loading /lib/x86_64-linux-gnu/libc.so.6(0x7f2d610ce000:0x7f2d614beade)
-Loading /lib/x86_64-linux-gnu/libdl.so.2(0x7f2d60eca000:0x7f2d610cd10e)
-Loading /lib/x86_64-linux-gnu/libpthread.so.0(0x7f2d60cab000:0x7f2d60ec947e)
-preloaded_image: 1 1  0x55b30d565000 0x7f2d73da5070 0x55b30d766d30 0x55b30d565000 /home/hgpatil/NUSingapore/dijkstra-global-perthread-6-26-2019/global/icount/dijkstra_openmp.gcc
-preloaded_image: 2 0 0x7f2d77081000 0x7f2d73da5070 0x7f2d772a8e68 0x7f2d77081000 /lib64/ld-linux-x86-64.so.2
-preloaded_image: 4 0 0x7f2d614c3000 0x7f2d73da5070 0x7f2d616f0da0 0x7f2d614c3000 /usr/lib/x86_64-linux-gnu/libgomp.so.1
-preloaded_image: 5 0 0x7f2d610ce000 0x7f2d73da5070 0x7f2d614b8b80 0x7f2d610ce000 /lib/x86_64-linux-gnu/libc.so.6
-preloaded_image: 6 0 0x7f2d60eca000 0x7f2d73da5070 0x7f2d610ccd90 0x7f2d60eca000 /lib/x86_64-linux-gnu/libdl.so.2
-preloaded_image: 7 0 0x7f2d60cab000 0x7f2d73da5070 0x7f2d60ec4d68 0x7f2d60cab000 /lib/x86_64-linux-gnu/libpthread.so.0
+Loading /nfs/mmdc/disks/tpi4/proj/ThreadPoints/test/thread/thread(0x000400000:0x000402213)
+Loading /lib64/ld-linux-x86-64.so.2(0x2aaaaaaab000:0x2aaaaaac9cbf)
+Loading /lib64/libpthread.so.0(0x2aaac07d5000:0x2aaac09f13af)
+Loading /lib64/libc.so.6(0x2aaac0a73000:0x2aaac0dee8b7)
+preloaded_image: 1 1  0x000000000 0x2aaaae792310 0x000403df8 0x000000000 /nfs/mmdc/disks/tpi4/proj/ThreadPoints/test/thread/thread
+preloaded_image: 2 0 0x2aaaaaaab000 0x2aaaae792310 0x2aaaaaccae70 0x2aaaaaaab000 /lib64/ld-linux-x86-64.so.2
+preloaded_image: 4 0 0x2aaac07d5000 0x2aaaae792310 0x2aaac09ecdb0 0x2aaac07d5000 /lib64/libpthread.so.0
+preloaded_image: 5 0 0x2aaac0a73000 0x2aaaae792310 0x2aaac0de8b60 0x2aaac0a73000 /lib64/libc.so.6
 -- end of image-load-log ----------------------------------------- 
 copy_images: 0
-inscount: 74
-OSTid: 20149
-log_entries: 0
+OSTid: 174776
+log_entries: 4
 ended_before_sc: 0
-num_logged_true_dependencies (RAW): 1
-num_logged_false_dependencies (WAR/WAW): 0
+num_logged_true_dependencies (RAW): 15
+num_logged_false_dependencies (WAR/WAW): 25
 num_signals 0
-num_syscalls: 0
-ip_type: init_pc: 0x55b30d5666e1
-ip_type:last_pc: 0x7f2d614dc0af
+num_syscalls: 20
+inscount: 10887
+ip_type:last_pc: 0x2aaac0b1ea56
+internal_repcount: 0
+ip_type: init_pc: 0x2aaac07dbf88
 restore_text_pc: 1
-ip_entry:restoretext_pc: 0x55b30d565a10
-ip_entry:restoretext_pc: 0x55b30d5666ad
-ip_entry:restoretext_pc: 0x7f2d614ccb40
-ip_entry:restoretext_pc: 0x7f2d614ccb47
-ip_entry:restoretext_pc: 0x7f2d614dc070
-ip_entry:restoretext_pc: 0x7f2d614dc1c0
+ip_entry:restoretext_pc: 0x2aaac0aee961
+ip_entry:restoretext_pc: 0x2aaaaaab417b
+ip_entry:restoretext_pc: 0x2aaac0af9319
+ip_entry:restoretext_pc: 0x2aaac07dbb42
+ip_entry:restoretext_pc: 0x2aaac07dbb49
+ip_entry:restoretext_pc: 0x2aaac07dbb68
+ip_entry:restoretext_pc: 0x2aaac0b5ec38
+ip_entry:restoretext_pc: 0x2aaac0b4a8c7
+ip_entry:restoretext_pc: 0x2aaac0adc22d
+ip_entry:restoretext_pc: 0x2aaac0adc23a
+ip_entry:restoretext_pc: 0x2aaac0af6732
+ip_entry:restoretext_pc: 0x2aaac0adc252
+ip_entry:restoretext_pc: 0x2aaac0adc293
+ip_entry:restoretext_pc: 0x2aaac0af0789
+ip_entry:restoretext_pc: 0x2aaac0b51795
+ip_entry:restoretext_pc: 0x2aaac07dbfa7
+ip_entry:restoretext_pc: 0x2aaac07dc02d
+ip_entry:restoretext_pc: 0x00040135c
+ip_entry:restoretext_pc: 0x00040136b
+ip_entry:restoretext_pc: 0x000401380
+ip_entry:restoretext_pc: 0x2aaaaaac21b0
+ip_entry:restoretext_pc: 0x2aaaaaac16f0

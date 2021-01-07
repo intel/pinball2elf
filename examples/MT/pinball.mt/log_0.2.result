@@ -1,20 +1,54 @@
 -- start of image-load-log --------------------------------------- 
 -- end of image-load-log ----------------------------------------- 
 copy_images: 0
-inscount: 30
-OSTid: 20157
+OSTid: 174782
 log_entries: 0
 ended_before_sc: 0
-num_logged_true_dependencies (RAW): 3
-num_logged_false_dependencies (WAR/WAW): 0
+num_logged_true_dependencies (RAW): 23
+num_logged_false_dependencies (WAR/WAW): 6
 num_signals 0
-num_syscalls: 0
-ip_type: init_pc: 0x7f2d614dc0a3
-ip_type:last_pc: 0x7f2d614d136a
+num_syscalls: 8
+inscount: 2721
+ip_type:last_pc: 0x2aaac07dc8c4
+internal_repcount: 0
+ip_type: init_pc: 0x2aaac0ab7370
 restore_text_pc: 1
-ip_entry:restoretext_pc: 0x55b30d566638
-ip_entry:restoretext_pc: 0x55b30d565a70
-ip_entry:restoretext_pc: 0x7f2d614d1357
-ip_entry:restoretext_pc: 0x7f2d614dc0a3
-ip_entry:restoretext_pc: 0x7f2d614dc0bd
-ip_entry:restoretext_pc: 0x7f2d614dc0c5
+ip_entry:restoretext_pc: 0x2aaaaaab4c18
+ip_entry:restoretext_pc: 0x2aaac0ac22b1
+ip_entry:restoretext_pc: 0x2aaac07d9fc6
+ip_entry:restoretext_pc: 0x2aaac0b5e948
+ip_entry:restoretext_pc: 0x2aaac0ab9fcc
+ip_entry:restoretext_pc: 0x2aaac07da1eb
+ip_entry:restoretext_pc: 0x2aaac07da230
+ip_entry:restoretext_pc: 0x2aaac0ae7efe
+ip_entry:restoretext_pc: 0x2aaac07da2d0
+ip_entry:restoretext_pc: 0x2aaaaaab4384
+ip_entry:restoretext_pc: 0x2aaac0a91860
+ip_entry:restoretext_pc: 0x2aaac07daf2a
+ip_entry:restoretext_pc: 0x2aaaaaab8c17
+ip_entry:restoretext_pc: 0x2aaaaaab8c1f
+ip_entry:restoretext_pc: 0x2aaaaaab8c2e
+ip_entry:restoretext_pc: 0x2aaac0a918a0
+ip_entry:restoretext_pc: 0x2aaac0ab721c
+ip_entry:restoretext_pc: 0x2aaaaaab8c59
+ip_entry:restoretext_pc: 0x2aaaaaab8c7b
+ip_entry:restoretext_pc: 0x2aaac0ab7250
+ip_entry:restoretext_pc: 0x2aaaaaab8c97
+ip_entry:restoretext_pc: 0x2aaac07dc80f
+ip_entry:restoretext_pc: 0x2aaaaaab44c5
+ip_entry:restoretext_pc: 0x2aaaaaab8cf3
+ip_entry:restoretext_pc: 0x2aaaaaabed50
+ip_entry:restoretext_pc: 0x2aaac0ab72eb
+ip_entry:restoretext_pc: 0x2aaaaaabed7e
+ip_entry:restoretext_pc: 0x2aaac0ab7321
+ip_entry:restoretext_pc: 0x2aaac0ab7370
+ip_entry:restoretext_pc: 0x2aaac0ab7373
+ip_entry:restoretext_pc: 0x2aaac0ab73aa
+ip_entry:restoretext_pc: 0x000401040
+ip_entry:restoretext_pc: 0x2aaac0ab73d7
+ip_entry:restoretext_pc: 0x000401080
+ip_entry:restoretext_pc: 0x2aaac0ab98c9
+ip_entry:restoretext_pc: 0x2aaac0adc293
+ip_entry:restoretext_pc: 0x000401258
+ip_entry:restoretext_pc: 0x2aaaaaab9c10
+ip_entry:restoretext_pc: 0x2aaac0abcc04
