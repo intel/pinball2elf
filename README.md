@@ -16,9 +16,9 @@ pinball2elf has been tested with the following OS/tool/hardware combinations:
 
       Loader Error: *.symtab local symbol at index 72 (>= sh_info of 70)*
 
- 2. OS: Ubuntu 16.04, gcc: 8.4.0, g++: 8.4.0, GNU ld ??
+ 2. OS: Ubuntu 16.04, gcc: 8.4.0, g++: 8.4.0, GNU ld 2.26.1
 
-      Loader errors: *reloacation trucated to fit: R_X86_64_32S against `data`*
+      Loader errors: *relocation truncated to fit: R_X86_64_32S against `data`*
 
 ## Quick Start Example
 1. Build pinball2elf
@@ -58,7 +58,7 @@ Hello world 1
   Running ../../scripts/pinball2elf.perf.sh pinball.st/log_0 st
   export ELFIE_PERFLIST=0:0,0:1,1:1
    [ based on /usr/include/linux/perf_event.h
-     Comma separeted pairs 'perftype:counter'
+     Comma separated pairs 'perftype:counter'
      perftype: 0 --> HW 1 --> SW
      HW counter: 0 --> PERF_COUNT_HW_CPU_CYCLES
      HW counter: 1 --> PERF_COUNT_HW_CPU_INSTRUCTIONS
@@ -226,7 +226,15 @@ pinball.st/log_0.sysstate/
     └── FD_1
 ```
 #### Known issue
-  Use of "-replay:addr\_trans" may cause some sysstate corruption. You may try skipping "-replay:addr\_trans" in those cases and instead try "pin -xyzzy -reserve_memory pinball.address ..."
+  * Use of "-replay:addr\_trans" may cause some sysstate corruption. You may try skipping "-replay:addr\_trans" in those cases and instead try "pin -xyzzy -reserve\_memory pinball.address ..."
+
+#### Micro-architecture dependance of pinballs and ELFies
+
+ A 'pinball' has the register state captured at recording time. This is either for the native x86 micro-architecture (if generated with [Pin](www.pinplay.org))
+ or the emulated micro-architecture  (if generated with [SDE](http://www.intel.com/software/sde)). The pinball2elf tool transfers the register state in a pinball to the ELFie it creates. This register state gets restored before each ELFie-created thread jumps to its application code embedded inside the ELFie. 
+
+* An ELFie will only run correctly on machines where the embedded register state  is valid.
+* The binary used to generate a pinball is compiled for a specific micro-architecture. When creating a pinball using SDE, make sure to use the right  micro-architecture flag (e.g. *sde -skx* for a binary compiled for Skylake server) to embedd the right register state in the pinball and hence in the corresponding ELFie. This is important to preserve the performance characteristics of the original binary.
 
 ### (Optional) warmup specification: Create  *event_icount.tid.txt* files for pinball
 * Build the pintool pinball-sysstate.so
