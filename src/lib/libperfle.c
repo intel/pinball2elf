@@ -703,6 +703,11 @@ lte_td_t lte_pe_set_sampling_icount_cbk(uint64_t tnum, int cpu, pid_t pid, uint6
       lte_ioctl(fd, PERF_EVENT_IOC_RESET, 0);
       td = tinfo;
    }
+   else
+   {
+      lte_write(2, "perf_event_open() failed\n", sizeof("perf_event_open() failed\n")-1);
+      lte_pe_error(EXIT_FAILURE);
+   }
 
    tinfo->tid = lte_gettid();
    tinfo->count_period = icount_period;
@@ -752,6 +757,11 @@ lte_td_t lte_pe_set_sampling_icount_cbk(uint64_t tnum, int cpu, pid_t pid, uint6
       lte_ioctl(wfd, PERF_EVENT_IOC_RESET, 0);
       lte_pe_enable(wfd);
       lte_ioctl(wfd, PERF_EVENT_IOC_REFRESH, 1);
+    }
+    else
+    {
+      lte_write(2, "perf_event_open() failed\n", sizeof("perf_event_open() failed\n")-1);
+      lte_pe_error(EXIT_FAILURE);
     }
     tinfo_alt->tid = lte_gettid();
     tinfo_alt->count = 0;
@@ -824,6 +834,11 @@ static lte_td_t lte_pe_set_sampling_bp_cbk(uint64_t tnum, int cpu, pid_t pid, ui
       lte_ioctl(fd, PERF_EVENT_IOC_RESET, 0);
       td = tinfo;
    }
+   else
+   {
+     lte_write(2, "perf_event_open() failed\n", sizeof("perf_event_open() failed\n")-1);
+     lte_pe_error(EXIT_FAILURE);
+   }
    tinfo->tid = lte_gettid();
    tinfo->count_period = bpcount_period;
    tinfo->count = 0;
@@ -874,6 +889,11 @@ static lte_td_t lte_pe_set_sampling_bp_cbk(uint64_t tnum, int cpu, pid_t pid, ui
       lte_ioctl(wfd, PERF_EVENT_IOC_RESET, 0);
       lte_pe_enable(wfd);
       lte_ioctl(wfd, PERF_EVENT_IOC_REFRESH, 1);
+    }
+    else
+    {
+      lte_write(2, "perf_event_open() failed\n", sizeof("perf_event_open() failed\n")-1);
+      lte_pe_error(EXIT_FAILURE);
     }
     tinfo_alt->tid = lte_gettid();
     tinfo_alt->count_period = wbpcount_period;
