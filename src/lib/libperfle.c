@@ -687,7 +687,7 @@ lte_td_t lte_pe_set_sampling_icount_cbk(uint64_t tnum, int cpu, pid_t pid, uint6
    lte_td_t td = NULL;
 
    int fd = lte_pe_open_perf_event(pid, cpu, -1, PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS, icount_period, 0 /*isglobal*/);
-   if(fd != -1)
+   if(fd >= 0)
    {
       lte_fcntl(fd, F_SETFL, O_NONBLOCK|O_ASYNC);
       lte_fcntl(fd, F_SETSIG, sig);
@@ -705,7 +705,7 @@ lte_td_t lte_pe_set_sampling_icount_cbk(uint64_t tnum, int cpu, pid_t pid, uint6
    }
    else
    {
-      lte_write(2, "perf_event_open() failed\n", sizeof("perf_event_open() failed\n")-1);
+      lte_write(2, "ERROR:perf_event_open() failed\n", sizeof("ERROR:perf_event_open() failed\n")-1);
       lte_pe_error(EXIT_FAILURE);
    }
 
@@ -719,7 +719,7 @@ lte_td_t lte_pe_set_sampling_icount_cbk(uint64_t tnum, int cpu, pid_t pid, uint6
     tinfo_alt->callback = wcallback;
  
     int wfd = lte_pe_open_perf_event(pid, cpu, -1, PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS, wicount_period, 0 /*isglobal*/);
-    if(wfd != -1)
+    if(wfd >= 0)
     {
       stack_t wss = {
         .ss_sp = tinfo_alt->stack,
@@ -760,7 +760,7 @@ lte_td_t lte_pe_set_sampling_icount_cbk(uint64_t tnum, int cpu, pid_t pid, uint6
     }
     else
     {
-      lte_write(2, "perf_event_open() failed\n", sizeof("perf_event_open() failed\n")-1);
+      lte_write(2, "ERROR:perf_event_open() failed\n", sizeof("ERROR:perf_event_open() failed\n")-1);
       lte_pe_error(EXIT_FAILURE);
     }
     tinfo_alt->tid = lte_gettid();
@@ -818,7 +818,7 @@ static lte_td_t lte_pe_set_sampling_bp_cbk(uint64_t tnum, int cpu, pid_t pid, ui
    tinfo->callback = callback;
    lte_td_t td = NULL;
    int fd = lte_pe_open_perf_bpevent(pid, cpu, -1, PERF_TYPE_BREAKPOINT, bp_addr, bpcount_period, 0 /*isglobal*/);
-   if(fd != -1)
+   if(fd >= 0)
    {
       lte_fcntl(fd, F_SETFL, O_NONBLOCK|O_ASYNC);
       lte_fcntl(fd, F_SETSIG, sig);
@@ -836,7 +836,7 @@ static lte_td_t lte_pe_set_sampling_bp_cbk(uint64_t tnum, int cpu, pid_t pid, ui
    }
    else
    {
-     lte_write(2, "perf_event_open() failed\n", sizeof("perf_event_open() failed\n")-1);
+     lte_write(2, "ERROR:perf_event_open() failed\n", sizeof("ERROR:perf_event_open() failed\n")-1);
      lte_pe_error(EXIT_FAILURE);
    }
    tinfo->tid = lte_gettid();
