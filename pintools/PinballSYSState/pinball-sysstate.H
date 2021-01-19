@@ -1166,7 +1166,8 @@ class SYSSTATE_CONSUMER
             INT32 currentFd = -1;
             string sysfname = p->_in_state_workdirname  + "/" + origfname;
             cerr << " Pre-opened FD file " << sysfname << endl;
-            currentFd = open(sysfname.c_str(), O_RDONLY|O_WRONLY);
+            //currentFd = open(sysfname.c_str(), O_RDONLY|O_WRONLY);
+            currentFd = open(sysfname.c_str(), O_RDWR, S_IRWXU);
             if (currentFd == -1 ) {
               cerr << "Error: Unable to open file; " << sysfname << endl;
               continue;

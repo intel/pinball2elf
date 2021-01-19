@@ -34,22 +34,19 @@ END_LEGAL */
 #include <sstream>
 
 #include "pin.H"
-#if defined(EMX_INIT)
-#  include "emx-init.H"
-#endif
 
 #include "pinball-sysstate.H"
 
-#if defined(EMX_INIT)
-#include "emx-pinplay-supp.H"
-#endif
 #include "pinplay.H"
-static PINPLAY_ENGINE *pinplay_engine;
-static PINPLAY_ENGINE pp_pinplay_engine;
+#include "pinplay-debugger-shell.H"
+PINPLAY_ENGINE pinplay_engine;
+DR_DEBUGGER_SHELL::ICUSTOM_INSTRUMENTOR *
+    CreatePinPlayInstrumentor(DR_DEBUGGER_SHELL::ISHELL *);
+DR_DEBUGGER_SHELL::ISHELL *shell = NULL;
+
 
 PINBALL_SYSSTATE::SYSSTATE pbsysstate;
 
-#if ! defined(EMX_INIT)
 #define KNOB_LOG_NAME  "log"
 #define KNOB_REPLAY_NAME "replay"
 #define KNOB_FAMILY "pintool:pinplay-driver"
@@ -61,11 +58,9 @@ KNOB<BOOL>KnobPinPlayReplayer(KNOB_MODE_WRITEONCE, KNOB_FAMILY,
 KNOB<BOOL>KnobPinPlayLogger(KNOB_MODE_WRITEONCE,  KNOB_FAMILY,
                      KNOB_LOG_NAME, "0", "Create a pinball");
 
-#endif
 
 
 
-#if !defined(EMX_INIT)
 LOCALFUN INT32 Usage(CHAR *prog)
 {
     cerr << "Usage: " << prog << " Args  -- app appargs ..." << endl;
@@ -75,32 +70,40 @@ LOCALFUN INT32 Usage(CHAR *prog)
     
     return -1;
 }
-#endif
+
+
+DR_DEBUGGER_SHELL::ICUSTOM_INSTRUMENTOR
+    *CreatePinPlayInstrumentor(DR_DEBUGGER_SHELL::ISHELL *shell)
+{
+    return new PINPLAY_DEBUGGER_INSTRUMENTOR(shell);
+}
 
 // argc, argv are the entire command line, including pin -t <toolname> -- ...
 int main(int argc, char * argv[])
 {
-#if defined(EMX_INIT)
-    emx_pin_init(argc,argv);
-    emx_init();
-#else
     if( PIN_Init(argc,argv) )
     {
         return Usage(argv[0]);
     }
-#endif
    PIN_InitSymbols();
 
-#if defined(EMX_INIT)
-    // This is a replay-only tool (for now)
-    pinplay_engine = emx_tracing_get_pinplay_engine();
-#else
-    pinplay_engine = &pp_pinplay_engine;
-    pinplay_engine->Activate(argc, argv, KnobPinPlayLogger, KnobPinPlayReplayer);
-#endif
+    pinplay_engine.Activate(argc, argv, KnobPinPlayLogger, KnobPinPlayReplayer);
+    DEBUG_STATUS debugStatus = PIN_GetDebugStatus();
 
-    pbsysstate.Activate(pinplay_engine->IsLoggerActive(), 
-      pinplay_engine->IsReplayerActive());
+    if (debugStatus != DEBUG_STATUS_DISABLED)
+    {
+        shell = DR_DEBUGGER_SHELL::CreatePinPlayShell();
+        DR_DEBUGGER_SHELL::STARTUP_ARGUMENTS args;
+        if (KnobPinPlayReplayer)
+        {
+            args._customInstrumentor = CreatePinPlayInstrumentor(shell);
+        }
+        if (!shell->Enable(args))
+            return 1;
+    }
+
+    pbsysstate.Activate(pinplay_engine.IsLoggerActive(), 
+      pinplay_engine.IsReplayerActive());
     // Start the program, never returns
     PIN_StartProgram();
 
