@@ -79,7 +79,7 @@ void init_perf()
    int i,j;
    if(e_num > PERF_TMAX)
    {
-    lte_write(1, "Only PERF_TMAX threads supported:", sizeof("Only PERF_TMAX threads supported:")-1); lte_diprintfe(1, PERF_TMAX, '\n');
+    lte_write(1, "Only PERF_TMAX threads supported:", lte_strlen("Only PERF_TMAX threads supported:")-1); lte_diprintfe(1, PERF_TMAX, '\n');
     e_num = PERF_TMAX;
    }
 
@@ -99,9 +99,9 @@ void init_perf()
 void setup_perfcounters(uint64_t tnum, lte_td_t td)
 {
    int j;
-   if(verbose)lte_write(2, "PERF monitoring: outfile ", sizeof("PERF monitoring: outfile ")-1); 
+   if(verbose)lte_write(2, "PERF monitoring: outfile ", lte_strlen("PERF monitoring: outfile ")-1); 
    if(verbose)lte_write(2, my_output_file[tnum], lte_strlen(my_output_file[tnum])-1); 
-   if(verbose)lte_write(2, "\n PERF_TYPE_HARDWARE:", sizeof("\n PERF_TYPE_HARDWARE:")-1); 
+   if(verbose)lte_write(2, "\n PERF_TYPE_HARDWARE:", lte_strlen("\n PERF_TYPE_HARDWARE:")-1); 
    for(j = 0; j <PERF_COUNT_HW_MAX  ; ++j)
    {
       if(hw_event_enabled[j])
@@ -114,7 +114,7 @@ void setup_perfcounters(uint64_t tnum, lte_td_t td)
         }
       }
    }
-   if(verbose)lte_write(2, "\n PERF_TYPE_SOFTWARE:", sizeof("\n PERF_TYPE_SOFTWARE:")-1); 
+   if(verbose)lte_write(2, "\n PERF_TYPE_SOFTWARE:", lte_strlen("\n PERF_TYPE_SOFTWARE:")-1); 
    for(j = 0; j <PERF_COUNT_SW_MAX  ; ++j)
    {
       if(sw_event_enabled[j])
@@ -127,7 +127,7 @@ void setup_perfcounters(uint64_t tnum, lte_td_t td)
         }
       }
    }
-   if(verbose)lte_write(2, "\n", sizeof("\n")-1); 
+   if(verbose)lte_write(2, "\n", lte_strlen("\n")-1); 
 }
 
 void print_perfcounters(uint64_t tnum)
@@ -155,7 +155,7 @@ void print_perfcounters(uint64_t tnum)
         lte_pe_enable(e_sw_perf[tnum][j]);
       }
    }
-   lte_write(my_out_fd, "\n", sizeof("\n")-1); 
+   lte_write(my_out_fd, "\n", lte_strlen("\n")-1); 
 }
 
 void simendpccount_callback(lte_td_t td, int signum, siginfo_t* info, void* p)
@@ -163,15 +163,15 @@ void simendpccount_callback(lte_td_t td, int signum, siginfo_t* info, void* p)
    pid_t tid = lte_pe_get_thread_tid(td);
    uint64_t tnum = lte_pe_get_thread_num_by_tid(tid);
    int my_out_fd = out_fd[tnum];
-   lte_write(my_out_fd, "Simulation end: TSC ", sizeof("Simulation end: TSC ")-1); 
+   lte_write(my_out_fd, "Simulation end: TSC ", lte_strlen("Simulation end: TSC ")-1); 
         lte_diprintfe(my_out_fd, rdtsc(), '\n');
-    lte_write(my_out_fd, "\tSim-end-PC:count 0x", sizeof("\tSim-end-PC:count 0x")-1); 
+    lte_write(my_out_fd, "\tSim-end-PC:count 0x", lte_strlen("\tSim-end-PC:count 0x")-1); 
     lte_xiprintfe(my_out_fd, pcaddr_arr[tnum], ':');lte_diprintfe(my_out_fd, pccount_arr[tnum], '\n');
 
         print_perfcounters(tnum);
         lte_fsync(my_out_fd);
-        lte_write(my_out_fd, sep, sizeof(sep)-1);
-        lte_write(my_out_fd, "Thread end: TSC ", sizeof("Thread end: TSC ")-1); 
+        lte_write(my_out_fd, sep, lte_strlen(sep)-1);
+        lte_write(my_out_fd, "Thread end: TSC ", lte_strlen("Thread end: TSC ")-1); 
         lte_diprintfe(my_out_fd, rdtsc(), '\n');
         lte_fsync(my_out_fd);
    lte_exit(0);
@@ -184,12 +184,12 @@ void warmupendpccount_callback(lte_td_t td, int signum, siginfo_t* info, void* p
    uint64_t tnum = lte_pe_get_thread_num_by_tid(tid);
    int fd = lte_pe_get_thread_fd(td);
    int my_out_fd = out_fd[tnum];
-   lte_write(my_out_fd, "Warmup end: TSC ", sizeof("Warmup end: TSC ")-1); 
+   lte_write(my_out_fd, "Warmup end: TSC ", lte_strlen("Warmup end: TSC ")-1); 
         lte_diprintfe(my_out_fd, rdtsc(), '\n');
-    lte_write(my_out_fd, "\tWarmup-end-PC:count 0x", sizeof("\tWarmup-end-PC:count 0x")-1); 
+    lte_write(my_out_fd, "\tWarmup-end-PC:count 0x", lte_strlen("\tWarmup-end-PC:count 0x")-1); 
     lte_xiprintfe(my_out_fd, wpcaddr_arr[tnum], ':');lte_diprintfe(my_out_fd, wpccount_arr[tnum], '\n');
     print_perfcounters(tnum);
-    lte_write(my_out_fd, sep, sizeof(sep)-1);
+    lte_write(my_out_fd, sep, lte_strlen(sep)-1);
     lte_fsync(my_out_fd);
 }
 
@@ -198,15 +198,15 @@ void simendicount_callback(lte_td_t td, int signum, siginfo_t* info, void* p)
    pid_t tid = lte_pe_get_thread_tid(td);
    uint64_t tnum = lte_pe_get_thread_num_by_tid(tid);
    int my_out_fd = out_fd[tnum];
-   lte_write(my_out_fd, "Simulation end: TSC ", sizeof("Simulation end: TSC ")-1); 
+   lte_write(my_out_fd, "Simulation end: TSC ", lte_strlen("Simulation end: TSC ")-1); 
         lte_diprintfe(my_out_fd, rdtsc(), '\n');
-    lte_write(my_out_fd, "\tSim-end-icount ", sizeof("\tSim-end-icount ")-1); 
+    lte_write(my_out_fd, "\tSim-end-icount ", lte_strlen("\tSim-end-icount ")-1); 
     lte_diprintfe(my_out_fd, icount_arr[tnum], '\n');
 
         print_perfcounters(tnum);
         lte_fsync(my_out_fd);
-        lte_write(my_out_fd, sep, sizeof(sep)-1);
-        lte_write(my_out_fd, "Thread end: TSC ", sizeof("Thread end: TSC ")-1); 
+        lte_write(my_out_fd, sep, lte_strlen(sep)-1);
+        lte_write(my_out_fd, "Thread end: TSC ", lte_strlen("Thread end: TSC ")-1); 
         lte_diprintfe(my_out_fd, rdtsc(), '\n');
         lte_fsync(my_out_fd);
    lte_exit(0);
@@ -218,12 +218,12 @@ void warmupendicount_callback(lte_td_t td, int signum, siginfo_t* info, void* p)
    uint64_t tnum = lte_pe_get_thread_num_by_tid(tid);
    int fd = lte_pe_get_thread_fd(td);
    int my_out_fd = out_fd[tnum];
-   lte_write(my_out_fd, "Warmup end: TSC ", sizeof("Warmup end: TSC ")-1); 
+   lte_write(my_out_fd, "Warmup end: TSC ", lte_strlen("Warmup end: TSC ")-1); 
         lte_diprintfe(my_out_fd, rdtsc(), '\n');
-    lte_write(my_out_fd, "\tWarmup-end-icount ", sizeof("\tWarmup-end-icount ")-1); 
+    lte_write(my_out_fd, "\tWarmup-end-icount ", lte_strlen("\tWarmup-end-icount ")-1); 
     lte_diprintfe(my_out_fd, wicount_arr[tnum], '\n');
         print_perfcounters(tnum);
-        lte_write(my_out_fd, sep, sizeof(sep)-1);
+        lte_write(my_out_fd, sep, lte_strlen(sep)-1);
         lte_fsync(my_out_fd);
 }
 
@@ -236,41 +236,41 @@ lte_td_t elfie_on_thread_start(uint64_t tnum, void* context, uint64_t icount)
    lte_td_t td = NULL;
    if(verbose)
    {
-    lte_write(2, "elfie_on_thread_start() elfie_tid: ", sizeof("elfie_on_thread_start() elfie_tid: ")-1); 
+    lte_write(2, "elfie_on_thread_start() elfie_tid: ", lte_strlen("elfie_on_thread_start() elfie_tid: ")-1); 
     lte_diprintfe(2, tnum, ' ');
-    lte_write(2, "icount: ", sizeof("icount: ")-1); 
+    lte_write(2, "icount: ", lte_strlen("icount: ")-1); 
     lte_diprintfe(2, icount, '\n');
    }
 
-   if(verbose)lte_write(2, "Exit condition:\n", sizeof("Exit condition:\n")-1); 
+   if(verbose)lte_write(2, "Exit condition:\n", lte_strlen("Exit condition:\n")-1); 
    if(use_pccount)
    {
     int flag = (wpccount_arr[tnum]!=0 && (use_warmup != 0));
     if( flag )
     {
-      if(verbose)lte_write(2, "Using warmup:\n", sizeof("Using warmup:\n")-1); 
+      if(verbose)lte_write(2, "Using warmup:\n", lte_strlen("Using warmup:\n")-1); 
       td = lte_pe_init_thread_sampling_bp(tnum, pcaddr_arr[tnum], pccount_arr[tnum], pccount_arr[tnum], &simendpccount_callback, wpcaddr_arr[tnum], wpccount_arr[tnum], wpccount_arr[tnum], &warmupendpccount_callback);
       if(verbose)
       {
-        lte_write(2, " Warmup-end PC 0x", sizeof(" Warmup-end PC 0x")-1); 
+        lte_write(2, " Warmup-end PC 0x", lte_strlen(" Warmup-end PC 0x")-1); 
         lte_xiprintfe(2, wpcaddr_arr[tnum], ' ');
-        lte_write(2, "count: ", sizeof("count: ")-1); 
+        lte_write(2, "count: ", lte_strlen("count: ")-1); 
         lte_diprintfe(2, wpccount_arr[tnum], ' ');
-        lte_write(2, " End PC 0x", sizeof(" End PC 0x")-1); 
+        lte_write(2, " End PC 0x", lte_strlen(" End PC 0x")-1); 
         lte_xiprintfe(2, pcaddr_arr[tnum], ' ');
-        lte_write(2, "count: ", sizeof("count: ")-1); 
+        lte_write(2, "count: ", lte_strlen("count: ")-1); 
         lte_diprintfe(2, pccount_arr[tnum], '\n');
       }
     }
     else
     {
-      if(verbose)lte_write(2, "NOT using warmup:\n", sizeof("NOT using warmup:\n")-1); 
+      if(verbose)lte_write(2, "NOT using warmup:\n", lte_strlen("NOT using warmup:\n")-1); 
       td = lte_pe_init_thread_sampling_bp(tnum, pcaddr_arr[tnum], pccount_arr[tnum], pccount_arr[tnum], &simendpccount_callback, 0, 0, 0, NULL);
       if(verbose)
       {
-        lte_write(2, " End PC 0x", sizeof(" End PC 0x")-1); 
+        lte_write(2, " End PC 0x", lte_strlen(" End PC 0x")-1); 
         lte_xiprintfe(2, pcaddr_arr[tnum], ' ');
-        lte_write(2, "count: ", sizeof("count: ")-1); 
+        lte_write(2, "count: ", lte_strlen("count: ")-1); 
         lte_diprintfe(2, pccount_arr[tnum], '\n');
       }
     }
@@ -280,23 +280,23 @@ lte_td_t elfie_on_thread_start(uint64_t tnum, void* context, uint64_t icount)
     int flag = (wicount_arr[tnum]!=0 && (use_warmup != 0));
     if(flag)
     {
-      if(verbose)lte_write(2, "Using warmup:\n", sizeof("Using warmup:\n")-1); 
+      if(verbose)lte_write(2, "Using warmup:\n", lte_strlen("Using warmup:\n")-1); 
       td = lte_pe_init_thread_sampling_icount(tnum, icount_arr[tnum], icount_arr[tnum], &simendicount_callback, wicount_arr[tnum], wicount_arr[tnum], &warmupendicount_callback);
       if(verbose)
       {
-        lte_write(2, " Warmup-end icount: ", sizeof(" Warmup-end icount: ")-1); 
+        lte_write(2, " Warmup-end icount: ", lte_strlen(" Warmup-end icount: ")-1); 
         lte_diprintfe(2, wicount_arr[tnum], ' ');
-        lte_write(2, "End icount: ", sizeof("End icount: ")-1); 
+        lte_write(2, "End icount: ", lte_strlen("End icount: ")-1); 
         lte_diprintfe(2, icount_arr[tnum], '\n');
       }
     }
     else
     {
-      if(verbose)lte_write(2, "NOT using warmup:\n", sizeof("NOT using warmup:\n")-1); 
+      if(verbose)lte_write(2, "NOT using warmup:\n", lte_strlen("NOT using warmup:\n")-1); 
       td = lte_pe_init_thread_sampling_icount(tnum, icount_arr[tnum], icount_arr[tnum], &simendicount_callback, 0, 0, NULL);
       if(verbose)
       {
-        lte_write(2, " End icount: ", sizeof(" End icount: ")-1); 
+        lte_write(2, " End icount: ", lte_strlen(" End icount: ")-1); 
         lte_diprintfe(2, icount_arr[tnum], '\n');
       }
     }
@@ -308,14 +308,14 @@ lte_td_t elfie_on_thread_start(uint64_t tnum, void* context, uint64_t icount)
       retval = lte_syscall(SYS_sched_setaffinity,tid, sizeof(cpu_set_t), (uint64_t)(&my_set), 0, 0, 0); 
       if (retval !=0 )
       {
-        lte_syscall(__NR_write, 2, (uint64_t)errmesg, sizeof(errmesg)-1, 0, 0, 0); 
+        lte_syscall(__NR_write, 2, (uint64_t)errmesg, lte_strlen(errmesg)-1, 0, 0, 0); 
       }
    }
    setup_perfcounters(tnum, td);
    int my_out_fd = out_fd[tnum];
-   lte_write(my_out_fd, "Thread start: TSC ", sizeof("Thread start: TSC ")-1); 
+   lte_write(my_out_fd, "Thread start: TSC ", lte_strlen("Thread start: TSC ")-1); 
         lte_diprintfe(my_out_fd, rdtsc(), '\n');
-   lte_write(my_out_fd, sep, sizeof(sep)-1);
+   lte_write(my_out_fd, sep, lte_strlen(sep)-1);
    lte_fsync(my_out_fd);
    return lte_pe_get_thread_desc(tnum);
 }
@@ -326,24 +326,24 @@ void elfie_on_start(uint64_t num_threads, void* context)
    read_environ();
    if(verbose)
    {
-    lte_write(2, "elfie_on_start() num_threads: ", sizeof("elfie_on_start() num_threads: ")-1); 
+    lte_write(2, "elfie_on_start() num_threads: ", lte_strlen("elfie_on_start() num_threads: ")-1); 
     lte_diprintfe(2, num_threads, '\n');
    }
 
    if (core_base >= 0)
   {
-      lte_syscall(__NR_write, 2, (uint64_t)"Will set affinity using  ", sizeof("Will set affinity using ")-1, 0, 0, 0); 
-      lte_write(1, "core_base: ", sizeof("core_base: ")-1); lte_diprintfe(1, core_base, '\n');
-      lte_write(1, "  elfie tid: 0 ", sizeof("  elfie tid: 0 ")-1); 
-      lte_write(1, " core id: ", sizeof(" core id: ")-1); lte_diprintfe(1, core_base, '\n');
+      lte_syscall(__NR_write, 2, (uint64_t)"Will set affinity using  ", lte_strlen("Will set affinity using ")-1, 0, 0, 0); 
+      lte_write(1, "core_base: ", lte_strlen("core_base: ")-1); lte_diprintfe(1, core_base, '\n');
+      lte_write(1, "  elfie tid: 0 ", lte_strlen("  elfie tid: 0 ")-1); 
+      lte_write(1, " core id: ", lte_strlen(" core id: ")-1); lte_diprintfe(1, core_base, '\n');
   }
   else
   {
-    lte_syscall(__NR_write, 2, (uint64_t)"Will skip affinity setting as core_base is negative \n", sizeof("Will skip affinity setting as core_base is negative \n")-1, 0, 0, 0); 
+    lte_syscall(__NR_write, 2, (uint64_t)"Will skip affinity setting as core_base is negative \n", lte_strlen("Will skip affinity setting as core_base is negative \n")-1, 0, 0, 0); 
   }
    if(use_pccount && (pcaddr_arr[0] == 0x0))
    {
-    lte_write(1, "Ignoring ELFIE_PCCOUNT=1\n", sizeof("Ignoring ELFIE_PCCOUNT=1\n")-1); 
+    lte_write(1, "Ignoring ELFIE_PCCOUNT=1\n", lte_strlen("Ignoring ELFIE_PCCOUNT=1\n")-1); 
     use_pccount=0;
    }
 
@@ -351,8 +351,8 @@ void elfie_on_start(uint64_t num_threads, void* context)
 
    pid_t pid = lte_getpid();
 
-   lte_write(1, sep, sizeof(sep)-1);
-   lte_write(1, sep, sizeof(sep)-1);
+   lte_write(1, sep, lte_strlen(sep)-1);
+   lte_write(1, sep, lte_strlen(sep)-1);
    lte_fsync(1);
   
    static lte_sigset_t set;
@@ -370,7 +370,7 @@ void elfie_on_start(uint64_t num_threads, void* context)
       char* fname = my_output_file[i];
       out_fd[i] = lte_open(fname, O_WRONLY | O_CREAT | O_TRUNC , S_IRUSR|S_IWUSR|S_IRGRP);
       int my_out_fd = out_fd[i];
-      lte_write(my_out_fd, "ROI start: TSC ", sizeof("ROI start: TSC ")-1); 
+      lte_write(my_out_fd, "ROI start: TSC ", lte_strlen("ROI start: TSC ")-1); 
         lte_diprintfe(my_out_fd, ptscstart, '\n');
       lte_fsync(my_out_fd);
    }
@@ -402,7 +402,7 @@ void elfie_on_exit()
       }
     }
     int my_out_fd = out_fd[i];
-    lte_write(my_out_fd, "ROI end: TSC ", sizeof("ROI end: TSC ")-1); 
+    lte_write(my_out_fd, "ROI end: TSC ", lte_strlen("ROI end: TSC ")-1); 
     lte_diprintfe(my_out_fd, ptscend, '\n');
     print_perfcounters(i);
     lte_fsync(my_out_fd);

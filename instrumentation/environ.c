@@ -211,7 +211,7 @@ void handle_envvars()
       if (isELFieVar(environ_vars[tmpi]))
       {
         lte_syscall(__NR_write, 1, (uint64_t)environ_vars[tmpi],lte_strlen(environ_vars[tmpi])-1, 0, 0, 0);
-        lte_syscall(__NR_write, 1, (uint64_t)"\n", sizeof("\n")-1, 0, 0, 0);
+        lte_syscall(__NR_write, 1, (uint64_t)"\n", lte_strlen("\n")-1, 0, 0, 0);
         if (handleELFieVERBOSE(environ_vars[tmpi])) continue;
         if (handleELFieCORES(environ_vars[tmpi])) continue;
         if (handleELFiePCCOUNT(environ_vars[tmpi])) continue;
@@ -229,7 +229,7 @@ void print_envvars(int elfie_only)
       {
         lte_diprintfe(1, tmpi, ':');
         lte_syscall(__NR_write, 1, (uint64_t)environ_vars[tmpi],lte_strlen(environ_vars[tmpi])-1, 0, 0, 0);
-        lte_syscall(__NR_write, 1, (uint64_t)"\n", sizeof("\n")-1, 0, 0, 0);
+        lte_syscall(__NR_write, 1, (uint64_t)"\n", lte_strlen("\n")-1, 0, 0, 0);
       }
   }
 }
@@ -248,9 +248,9 @@ void clean_environ()
     varindex++;
     if(varindex > MAXENVCOUNT)
     {
-      lte_syscall(__NR_write, 2, (uint64_t)"Too many environment variables ", sizeof("Too many environment variables ")-1, 0, 0, 0);
+      lte_syscall(__NR_write, 2, (uint64_t)"Too many environment variables ", lte_strlen("Too many environment variables ")-1, 0, 0, 0);
       lte_diprintfe(2, varindex, '\n');
-      lte_syscall(__NR_write, 2, (uint64_t)"Exiting... \n", sizeof("Exiting... \n")-1, 0, 0, 0);
+      lte_syscall(__NR_write, 2, (uint64_t)"Exiting... \n", lte_strlen("Exiting... \n")-1, 0, 0, 0);
       lte_exit_group(0);
     }
     varptr=&elfie_environ[tmpi+1];
@@ -266,15 +266,15 @@ void read_environ()
    efd = lte_syscall(__NR_open, (uint64_t)"/proc/self/environ", (uint64_t)O_RDONLY|O_CLOEXEC, 0,  0, 0, 0);
   if (efd == -1 )
   {
-   lte_syscall(__NR_write, 2, (uint64_t)"environ open failed", sizeof("environ open failed")-1, 0, 0, 0);
+   lte_syscall(__NR_write, 2, (uint64_t)"environ open failed", lte_strlen("environ open failed")-1, 0, 0, 0);
    return;
   }
   envsize = lte_syscall(__NR_read, (uint64_t)efd, (uint64_t)elfie_environ, (uint64_t) MAXENVSIZE,  0, 0, 0);
   if(envsize == MAXENVSIZE)
   {
-    lte_syscall(__NR_write, 2, (uint64_t)"environ too big to read ", sizeof("environ too big to read ")-1, 0, 0, 0);
+    lte_syscall(__NR_write, 2, (uint64_t)"environ too big to read ", lte_strlen("environ too big to read ")-1, 0, 0, 0);
     lte_diprintfe(2, envsize, '\n');
-    lte_syscall(__NR_write, 2, (uint64_t)"Exiting... \n", sizeof("Exiting... \n")-1, 0, 0, 0);
+    lte_syscall(__NR_write, 2, (uint64_t)"Exiting... \n", lte_strlen("Exiting... \n")-1, 0, 0, 0);
     lte_exit_group(0);
   }
   clean_environ();

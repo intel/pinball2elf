@@ -127,11 +127,11 @@ fi
     sscmark=0x111
     sysstate=""
     BNAME=`basename $BASE`
-    DEST=$BASE.elfie
+    DEST=$BASE.basic.elfie
     if test "$( find $basedir -name "$basename*.sysstate" -print -quit)"
     then
       sysstate=`find $basedir -name "$basename*.sysstate"`
-      DEST=$sysstate/workdir/$BNAME.elfie
+      DEST=$sysstate/workdir/$BNAME.basic.elfie
     fi
     cp $INST/basic_callbacks.c $TMPDIR/basic_callbacks.$$.c
     if [ ! -z $sysstate ];
