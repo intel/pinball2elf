@@ -13,7 +13,7 @@ echo "TMPDR $TMPDIR"
 ERROR()
 {
   echo "Usage : " $0 " pinball filename-prefix <use_warmup>" 
-  exit
+  exit 1
 }
 
 SETENV()
