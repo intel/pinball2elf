@@ -102,8 +102,7 @@ int main(int argc, char * argv[])
             return 1;
     }
 
-    pbsysstate.Activate(pinplay_engine.IsLoggerActive(), 
-      pinplay_engine.IsReplayerActive());
+    pbsysstate.Activate(&pinplay_engine);
     // Start the program, never returns
     PIN_StartProgram();
 

@@ -129,6 +129,7 @@ END_LEGAL */
 #include <dirent.h>
 #include "pin.H"
 #include "instlib.H"
+#include "pinplay.H"
 
 using namespace std;
 namespace PINBALL_SYSSTATE{
@@ -240,7 +241,7 @@ class FD_STATE
  public:   
     INT32 _fd;
     READ_STATE_LIST _read_state_list;
-    FD_STATE(INT32 fd): _fd(fd) 
+    FD_STATE(INT32 fd): _fd(fd), _read_state_list() 
     {
       _current_file_pos = 0;
     };
@@ -390,7 +391,7 @@ class FILE_STATE : public FD_STATE
 class SYSSTATE_PRODUCER
 {
   public:
-    SYSSTATE_PRODUCER(string statedirname, bool verbose)
+    SYSSTATE_PRODUCER(PINPLAY_ENGINE *pinplay_engine, string statedirname, bool verbose):pre_existing_fd_map(), open_fd_map(), opened_file_list(), closed_fd_list()
     {
       _out_state_rootdirname = statedirname + ".sysstate";
       _out_state_workdirname = statedirname + ".sysstate/workdir";
@@ -408,11 +409,17 @@ class SYSSTATE_PRODUCER
       PIN_RWMutexInit(&_producerMutex);
     }
 
+    ADDRINT TranslateAddress(ADDRINT origaddr)
+    {
+      return _pinplay_engine->ReplayerTranslateAddress(origaddr);
+    }
+
   private:
      static BOOL checkFDmap(FD_MAP_PTR ptrmap, 
           ADDRINT memea_callback, UINT32 bytes,string *dis)
      {
-        for (auto itr = ptrmap->begin(); 
+       FD_MAP:: iterator itr;
+        for (itr = ptrmap->begin(); 
           itr != ptrmap->end(); ++itr) 
         { 
           FD_STATE * fs = itr->second;
@@ -443,7 +450,8 @@ class SYSSTATE_PRODUCER
      static BOOL checkFDlist(FD_STATE_LIST_PTR ptrlist, 
           ADDRINT memea_callback, UINT32 bytes,string *dis)
      {
-        for (auto itr = ptrlist->begin(); 
+       FD_STATE_LIST:: iterator itr;
+        for (itr = ptrlist->begin(); 
           itr != ptrlist->end(); ++itr) 
         { 
           FD_STATE * fs = (*itr);
@@ -572,7 +580,7 @@ class SYSSTATE_PRODUCER
       {
         OutputBRKvalues(p->_out_state_workdirname, v);
       }
-      for (auto itr = p->pre_existing_fd_map.begin(); 
+      for (FD_MAP::iterator itr = p->pre_existing_fd_map.begin(); 
           itr != p->pre_existing_fd_map.end(); ++itr) 
       { 
         FD_STATE * fs = itr->second;
@@ -697,7 +705,7 @@ class SYSSTATE_PRODUCER
             << hex << " ip 0x" << tdata->_data.sys_ip
             << " retval 0x" << hex << syscall_retval 
             << " arg 0 0x" << hex <<  tdata->_data.arg0
-            << " pathname " << (char *)tdata->_data.arg0
+            << " pathname " << (char *)p->TranslateAddress(tdata->_data.arg0)
             << endl;
    }
 #if 0
@@ -712,10 +720,13 @@ class SYSSTATE_PRODUCER
             INT32 fd = syscall_retval;
             if ( fd != -1 )
             {
-              string fname((char *)tdata->_data.arg0);
-              //cerr << " open:pathname " << fname
-               //  << " fd " << fd << endl;
-              auto it = p->open_fd_map.find(fd);
+              //string fname((char *)tdata->_data.arg0);
+              string fname((char *)p->TranslateAddress(tdata->_data.arg0));
+              if(p->_verbose){
+                 cerr << " open:pathname " << fname
+                 << " fd " << fd << endl;
+              }
+              FD_MAP::iterator it = p->open_fd_map.find(fd);
               ASSERTX( it == p->open_fd_map.end());
               FILE_STATE * fs =  p->FindOpenFile(v, fname);
               if (fs == NULL)
@@ -743,13 +754,13 @@ class SYSSTATE_PRODUCER
             << hex << " ip 0x" << tdata->_data.sys_ip
             << " retval 0x" << hex << syscall_retval 
             << " arg 1 0x" << hex <<  tdata->_data.arg1
-            << " pathname " << (char *)tdata->_data.arg1
+            << " pathname " << (char *)p->TranslateAddress(tdata->_data.arg1)
             << endl;
    }
             if ( fd != -1 )
             {
-              string fname((char *)tdata->_data.arg1);
-              auto it = p->open_fd_map.find(fd);
+              string fname((char *)p->TranslateAddress(tdata->_data.arg1));
+              FD_MAP::iterator it = p->open_fd_map.find(fd);
               ASSERTX( it == p->open_fd_map.end());
               FILE_STATE * fs =  p->FindOpenFile(v, fname);
               if (fs == NULL)
@@ -777,12 +788,12 @@ class SYSSTATE_PRODUCER
             << hex << " ip 0x" << tdata->_data.sys_ip
             << " retval 0x" << hex << syscall_retval 
             << " arg 0 0x" << hex <<  tdata->_data.arg0
-            << " pathname " << (char *)tdata->_data.arg0
+            << " pathname " << (char *)p->TranslateAddress(tdata->_data.arg0)
             << endl;
    }
             if ( retval != -1 )
             {
-              string fname((char *)tdata->_data.arg0);
+              string fname((char *)p->TranslateAddress(tdata->_data.arg0));
               FILE_STATE * fs =  p->FindOpenFile(v, fname);
               if (fs == NULL)
               {
@@ -800,7 +811,7 @@ class SYSSTATE_PRODUCER
             if ( retval == 0 )
             {
               INT32 fd = tdata->_data.arg0;
-        auto it = p->open_fd_map.find(fd);
+        FD_MAP::iterator it = p->open_fd_map.find(fd);
         if ( it == p->open_fd_map.end())
         {
           it = p->pre_existing_fd_map.find(fd);
@@ -828,18 +839,17 @@ class SYSSTATE_PRODUCER
             << endl;
    }
          INT32 fd = tdata->_data.arg0;
-         auto it = p->open_fd_map.find(fd);
+         FD_MAP::iterator it = p->open_fd_map.find(fd);
          if ( it != p->open_fd_map.end())
          {
             FD_STATE * fs = it->second;
             // This fd is for a file open()ed in the ROI
-            //cerr << "Erasing from open_fd_map FD " << fd << endl;
+            if(p->_verbose){
+              cerr << "Erasing from open_fd_map FD " << fd << endl;
+            }
             p->closed_fd_list.push_front(fs);
-            p->open_fd_map.erase(it);
-            //FILE_STATE * ofs = FindOpenFileFd(v, fd);
-            //ofs->OutputReadStateListFile(p->_out_state_dirname);
-            //cerr << "Exiting after close of " << ofs->_fname << endl;
-            //PIN_ExitProcess(1);
+            //p->open_fd_map.erase(it);
+            p->open_fd_map.erase(fd);
          }
          else
          {
@@ -882,7 +892,7 @@ class SYSSTATE_PRODUCER
 #endif
          if ( (fd != -1) && ((INT32)syscall_retval != -1))
          {
-          auto it = p->open_fd_map.find(fd);
+          FD_MAP::iterator it = p->open_fd_map.find(fd);
           if ( it != p->open_fd_map.end())
           {
             FD_STATE * fs = it->second;
@@ -931,13 +941,15 @@ class SYSSTATE_PRODUCER
             << " fd " << dec <<  fd
             << endl;
    }
-          auto it = p->open_fd_map.find(fd);
+          FD_MAP::iterator it = p->open_fd_map.find(fd);
           if ( it != p->open_fd_map.end())
           {
             FD_STATE * fs = it->second;
             fs->AddReadState(tdata->_data.sys_ip, mapped_addr,
               length, length);
-            //cerr << "Adding MMAP info as ReadState to  open_fd_map FD " << fd << endl;
+            if(p->_verbose){
+              cerr << "Adding MMAP info as ReadState to  open_fd_map FD " << fd << endl;
+            }
           }
           else
           {
@@ -945,13 +957,17 @@ class SYSSTATE_PRODUCER
             if ( it != p->pre_existing_fd_map.end())
             {
               // this is mmap() to an FD not associated with any open()
-              //cerr << "Found mmap :  pre_existing FD " << fd << endl;
+              if(p->_verbose){
+                cerr << "Found mmap :  pre_existing FD " << fd << endl;
+              }
               FD_STATE * fs = new FD_STATE(fd);
               fs->AddReadState(tdata->_data.sys_ip, tdata->_data.arg1,
                 tdata->_data.arg2, syscall_retval);
               fs->AddReadState(tdata->_data.sys_ip, mapped_addr,
                 length, length);
-              //cerr << "Adding MMAP info as ReadState to  open_fd_map FD " << fd << endl;
+              if(p->_verbose){
+                cerr << "Adding MMAP info as ReadState to  open_fd_map FD " << fd << endl;
+              }
               p->pre_existing_fd_map[fd] = fs;
             }
             else
@@ -989,13 +1005,15 @@ class SYSSTATE_PRODUCER
             << endl;
 #endif
         INT32 fd = tdata->_data.arg0;
-        auto it = p->open_fd_map.find(fd);
+        FD_MAP::iterator it = p->open_fd_map.find(fd);
         if ( it != p->open_fd_map.end())
         {
           FD_STATE * fs = it->second;
           fs->AddReadState(tdata->_data.sys_ip, tdata->_data.arg1,
             tdata->_data.arg2, syscall_retval);
-          //cerr << "Adding ReadState to  open_fd_map FD " << fd << endl;
+          if(p->_verbose){
+            cerr << "Adding ReadState to  open_fd_map FD " << fd << endl;
+          }
         }
         else
         {
@@ -1004,19 +1022,25 @@ class SYSSTATE_PRODUCER
           {
           // this is read() from an FD not associated with any open()
           // This must be the first read from pre_existing FD
-            //cerr << "Found first read:  pre_existing FD " << fd << endl;
+            if(p->_verbose){
+              cerr << "Found first read:  pre_existing FD " << fd << endl;
+            }
             FD_STATE * fs = new FD_STATE(fd);
             fs->AddReadState(tdata->_data.sys_ip, tdata->_data.arg1,
               tdata->_data.arg2, syscall_retval);
             p->pre_existing_fd_map[fd] = fs;
-            //cerr << "Adding ReadState to  pre_existing_fd_map FD " << fd << endl;
+            if(p->_verbose){
+              cerr << "Adding ReadState to  pre_existing_fd_map FD " << fd << endl;
+            }
           }
           else
           {
             FD_STATE * fs = it->second;
             fs->AddReadState(tdata->_data.sys_ip, tdata->_data.arg1,
               tdata->_data.arg2, syscall_retval);
-            //cerr << "Adding ReadState to  pre_existing_fd_map FD " << fd << endl;
+            if(p->_verbose){
+              cerr << "Adding ReadState to  pre_existing_fd_map FD " << fd << endl;
+            }
           }
         }
         PIN_RWMutexUnlock(&(p->_producerMutex));
@@ -1046,7 +1070,7 @@ class SYSSTATE_PRODUCER
             << endl;
 #endif
         INT32 fd = tdata->_data.arg0;
-        auto it = p->open_fd_map.find(fd);
+        FD_MAP::iterator it = p->open_fd_map.find(fd);
         if ( it != p->open_fd_map.end())
         {
           if(p->_verbose)
@@ -1112,6 +1136,7 @@ class SYSSTATE_PRODUCER
      tdata->_data.sys_ip = 0;
   }
   PIN_RWMUTEX     _producerMutex;
+  PINPLAY_ENGINE     *_pinplay_engine;
   //for accessing TLS storage in the threads. initialized in the constructor
   TLS_KEY producer_tls_key;
   FD_MAP pre_existing_fd_map;
@@ -1469,8 +1494,10 @@ class SYSSTATE
       "Print verbose information about syscalls"
       )
       { }
-    VOID Activate(BOOL loggerActive, BOOL replayerActive)
+    VOID Activate(PINPLAY_ENGINE *pinplay_engine)
     {
+       BOOL loggerActive = pinplay_engine->IsLoggerActive();
+       BOOL replayerActive = pinplay_engine->IsReplayerActive();
       _producer = NULL;
       // Do nothing if replayer is not active 
       if(!replayerActive)
@@ -1529,7 +1556,7 @@ class SYSSTATE
         else {
           cerr << "Will produce sysstate in " <<  _sysstateOutKnob.Value() 
              << ".sysstate" << endl;
-          _producer = new SYSSTATE_PRODUCER(_sysstateOutKnob.Value(), _sysstateVerboseKnob);
+          _producer = new SYSSTATE_PRODUCER(pinplay_engine, _sysstateOutKnob.Value(), _sysstateVerboseKnob);
         }
       }
     }
