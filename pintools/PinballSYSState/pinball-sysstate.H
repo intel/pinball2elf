@@ -122,11 +122,13 @@ END_LEGAL */
 #include <string>
 #include <list>
 #include <sys/syscall.h>
-#include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <libgen.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <limits.h> // for PATH_MAX definition
 #include "pin.H"
 #include "instlib.H"
 #include "pinplay.H"
@@ -406,12 +408,18 @@ class SYSSTATE_PRODUCER
       PIN_AddFiniFunction(FiniProducer, this);
       INS_AddInstrumentFunction(Instruction, this);
       producer_tls_key = PIN_CreateThreadDataKey(NULL);
+      _pinplay_engine = pinplay_engine;
       PIN_RWMutexInit(&_producerMutex);
     }
 
     ADDRINT TranslateAddress(ADDRINT origaddr)
     {
       return _pinplay_engine->ReplayerTranslateAddress(origaddr);
+    }
+    
+    const char * WorkDirName()
+    {
+      return _out_state_workdirname.c_str();
     }
 
   private:
@@ -684,6 +692,24 @@ class SYSSTATE_PRODUCER
           << endl;
    }
 #endif
+    switch (tdata->_data.sys_num)
+    {
+      case SYS_getcwd:
+      {
+        PIN_RWMutexReadLock(&(p->_producerMutex));
+        if(p->_verbose)
+        {
+              cerr << " Producer:SysBefore SYS_getcwd threadid " << threadid; 
+              cerr << " num 0x" << hex <<  tdata->_data.sys_num
+                  << hex << " ip 0x" << tdata->_data.sys_ip
+                  << " arg 0 0x" << hex <<  tdata->_data.arg0
+                  << " bufptr " << p->TranslateAddress(tdata->_data.arg0)
+                  << endl;
+        }
+        PIN_RWMutexUnlock(&(p->_producerMutex));
+        break;
+      }
+    }
   }
 
   static VOID syscallExitCallbackProducer(THREADID threadid, CONTEXT *ctxt,
@@ -695,6 +721,35 @@ class SYSSTATE_PRODUCER
          (PIN_GetThreadData(p->producer_tls_key, threadid));
     switch (tdata->_data.sys_num)
     {
+      case SYS_getcwd:
+      {
+        PIN_RWMutexReadLock(&(p->_producerMutex));
+   if(p->_verbose)
+   {
+        cerr << " Producer:SysAfter SYS_getcwd threadid " << threadid; 
+        cerr << " num 0x" << hex <<  tdata->_data.sys_num
+            << hex << " ip 0x" << tdata->_data.sys_ip
+            << " retval 0x" << hex << syscall_retval 
+            << " arg 0 0x" << hex <<  tdata->_data.arg0
+            << " bufptr " << p->TranslateAddress(tdata->_data.arg0)
+            << " *buf " << (char *)p->TranslateAddress(tdata->_data.arg0)
+            << endl;
+   }
+#if 0
+            INT32 actsize = syscall_retval;
+            char * bufptr = (char *)p->TranslateAddress(tdata->_data.arg0);
+            ASSERT(actsize <= PATH_MAX, "getcwd() return value too large \n");
+            const char * workdir = p->WorkDirName();
+            ASSERT(strlen(workdir) <= PATH_MAX, "simuated workdir too large \n");
+            strcpy(bufptr, workdir);
+           if(p->_verbose)
+           {
+            cerr << " Modified *buf " << bufptr << endl;
+           }
+#endif
+          PIN_RWMutexUnlock(&(p->_producerMutex));
+          break;
+      }
       case SYS_open:
       {
         PIN_RWMutexReadLock(&(p->_producerMutex));
@@ -928,15 +983,16 @@ class SYSSTATE_PRODUCER
         PIN_RWMutexReadLock(&(p->_producerMutex));
           INT32 fd = tdata->_data.arg4;
           UINT32 length = tdata->_data.arg1;
-          ADDRINT mapped_addr = syscall_retval;
          if ( (fd != -1) && ((INT32)syscall_retval != -1))
          {
+          ADDRINT mapped_addr = p->TranslateAddress(syscall_retval);
    if(p->_verbose)
    {
         cerr << " Producer:SysAfter SYS_mmap? threadid " << threadid; 
         cerr << " num 0x" << hex <<  tdata->_data.sys_num
             << hex << " ip 0x" << tdata->_data.sys_ip
             << " retval 0x" << hex << syscall_retval 
+            << " translated retval 0x" << hex << mapped_addr 
             << " length " << dec <<  length
             << " fd " << dec <<  fd
             << endl;
@@ -961,8 +1017,6 @@ class SYSSTATE_PRODUCER
                 cerr << "Found mmap :  pre_existing FD " << fd << endl;
               }
               FD_STATE * fs = new FD_STATE(fd);
-              fs->AddReadState(tdata->_data.sys_ip, tdata->_data.arg1,
-                tdata->_data.arg2, syscall_retval);
               fs->AddReadState(tdata->_data.sys_ip, mapped_addr,
                 length, length);
               if(p->_verbose){
@@ -991,6 +1045,7 @@ class SYSSTATE_PRODUCER
             << " retval 0x" << hex << syscall_retval 
             << " fd 0x" << hex << tdata->_data.arg0
             << " buf 0x" << hex << tdata->_data.arg1
+            << " translated buf 0x" << hex << p->TranslateAddress(tdata->_data.arg1)
             << " count 0x" << hex << tdata->_data.arg2
             << endl;
        //printReadBuf(tdata->_data.arg1, tdata->_data.arg2);
@@ -1009,7 +1064,7 @@ class SYSSTATE_PRODUCER
         if ( it != p->open_fd_map.end())
         {
           FD_STATE * fs = it->second;
-          fs->AddReadState(tdata->_data.sys_ip, tdata->_data.arg1,
+          fs->AddReadState(tdata->_data.sys_ip, p->TranslateAddress(tdata->_data.arg1),
             tdata->_data.arg2, syscall_retval);
           if(p->_verbose){
             cerr << "Adding ReadState to  open_fd_map FD " << fd << endl;
@@ -1026,7 +1081,7 @@ class SYSSTATE_PRODUCER
               cerr << "Found first read:  pre_existing FD " << fd << endl;
             }
             FD_STATE * fs = new FD_STATE(fd);
-            fs->AddReadState(tdata->_data.sys_ip, tdata->_data.arg1,
+            fs->AddReadState(tdata->_data.sys_ip, p->TranslateAddress(tdata->_data.arg1),
               tdata->_data.arg2, syscall_retval);
             p->pre_existing_fd_map[fd] = fs;
             if(p->_verbose){
@@ -1036,7 +1091,7 @@ class SYSSTATE_PRODUCER
           else
           {
             FD_STATE * fs = it->second;
-            fs->AddReadState(tdata->_data.sys_ip, tdata->_data.arg1,
+            fs->AddReadState(tdata->_data.sys_ip, p->TranslateAddress(tdata->_data.arg1),
               tdata->_data.arg2, syscall_retval);
             if(p->_verbose){
               cerr << "Adding ReadState to  pre_existing_fd_map FD " << fd << endl;
@@ -1057,6 +1112,7 @@ class SYSSTATE_PRODUCER
             << " retval 0x" << hex << syscall_retval 
             << " fd 0x" << hex << tdata->_data.arg0
             << " buf 0x" << hex << tdata->_data.arg1
+            << " translated buf 0x" << hex << p->TranslateAddress(tdata->_data.arg1)
             << " count 0x" << hex << tdata->_data.arg2
             << endl;
    }
@@ -1154,7 +1210,7 @@ class SYSSTATE_PRODUCER
 class SYSSTATE_CONSUMER
 {
   public:
-    SYSSTATE_CONSUMER(string statedirname, bool verbose)
+    SYSSTATE_CONSUMER(PINPLAY_ENGINE *pinplay_engine, string statedirname, bool verbose)
     {
       _in_state_rootdirname = statedirname;
       _in_state_workdirname = statedirname + "/workdir";
@@ -1166,7 +1222,18 @@ class SYSSTATE_CONSUMER
       PIN_AddThreadStartFunction(ThreadStartConsumer, this);
       PIN_AddApplicationStartFunction(StartConsumer, this);
       consumer_tls_key = PIN_CreateThreadDataKey(NULL);
+      _pinplay_engine = pinplay_engine;
       PIN_RWMutexInit(&_consumerMutex);
+    }
+
+    ADDRINT TranslateAddress(ADDRINT origaddr)
+    {
+      return _pinplay_engine->ReplayerTranslateAddress(origaddr);
+    }
+    
+    const char * WorkDirName()
+    {
+      return _in_state_workdirname.c_str();
     }
 
   private:
@@ -1259,6 +1326,21 @@ class SYSSTATE_CONSUMER
 #endif
     switch (syscall_num)
     {
+      case SYS_getcwd:
+      {
+        PIN_RWMutexReadLock(&(p->_consumerMutex));
+   if(p->_verbose)
+   {
+        cerr << " Consumer:SysBefore SYS_getcwd threadid " << threadid; 
+        cerr << " num 0x" << hex <<  tdata->_data.sys_num
+            << hex << " ip 0x" << tdata->_data.sys_ip
+            << " arg 0 0x" << hex <<  tdata->_data.arg0
+            << " bufptr " << p->TranslateAddress(tdata->_data.arg0)
+            << endl;
+   }
+          PIN_RWMutexUnlock(&(p->_consumerMutex));
+          break;
+      }
       case SYS_open:
       {
         PIN_RWMutexReadLock(&(p->_consumerMutex));
@@ -1282,7 +1364,7 @@ class SYSSTATE_CONSUMER
       {
         PIN_RWMutexReadLock(&(p->_consumerMutex));
           string sysfname; 
-          string fname((char *)tdata->_data.arg1);
+          string fname((char *)p->TranslateAddress(tdata->_data.arg1));
           //cerr << " openat:pathname " << fname;
           if(IsAbsolutePathname(fname))
             sysfname = p->_in_state_rootdirname  + "/" + fname;
@@ -1301,7 +1383,7 @@ class SYSSTATE_CONSUMER
       {
         PIN_RWMutexReadLock(&(p->_consumerMutex));
           string sysfname;
-          string fname((char *)tdata->_data.arg0);
+          string fname((char *)p->TranslateAddress(tdata->_data.arg0));
           if(IsAbsolutePathname(fname))
             sysfname = p->_in_state_rootdirname  + "/" + fname;
           else
@@ -1325,6 +1407,7 @@ class SYSSTATE_CONSUMER
             << hex << " ip 0x" << tdata->_data.sys_ip
             << " fd 0x" << hex << tdata->_data.arg0
             << " buf 0x" << hex << tdata->_data.arg1
+            << " translated buf 0x" << hex << p->TranslateAddress(tdata->_data.arg1)
             << " count 0x" << hex << tdata->_data.arg2
             << endl;
    }
@@ -1344,6 +1427,27 @@ class SYSSTATE_CONSUMER
          (PIN_GetThreadData(p->consumer_tls_key, threadid));
     switch (tdata->_data.sys_num)
     {
+      case SYS_getcwd:
+      {
+        PIN_RWMutexReadLock(&(p->_consumerMutex));
+   if(p->_verbose)
+   {
+        cerr << " Consumer:SysAfter SYS_getcwd threadid " << threadid; 
+        cerr << " num 0x" << hex <<  tdata->_data.sys_num
+            << hex << " ip 0x" << tdata->_data.sys_ip
+            << " retval 0x" << hex << syscall_retval 
+            << " arg 0 0x" << hex <<  tdata->_data.arg0
+            << " translated bufptr " << p->TranslateAddress(tdata->_data.arg0)
+            << " *buf " << (char *)p->TranslateAddress(tdata->_data.arg0)
+            << endl;
+   }
+#if 0
+            INT32 actsize = syscall_retval;
+            ASSERT(actsize <= PATH_MAX, "getcwd() return value too large \n");
+#endif
+          PIN_RWMutexUnlock(&(p->_consumerMutex));
+          break;
+      }
       case SYS_open:
       {
         PIN_RWMutexReadLock(&(p->_consumerMutex));
@@ -1354,7 +1458,7 @@ class SYSSTATE_CONSUMER
             << hex << " ip 0x" << tdata->_data.sys_ip
             << " retval 0x" << hex << syscall_retval 
             << " arg 0 0x" << hex <<  tdata->_data.arg0
-            << " pathname " << (char *) tdata->_data.arg0
+            << " pathname " << (char *) p->TranslateAddress(tdata->_data.arg0)
             << endl;
    }
 #if 0
@@ -1379,7 +1483,7 @@ class SYSSTATE_CONSUMER
             << hex << " ip 0x" << tdata->_data.sys_ip
             << " retval 0x" << hex << syscall_retval 
             << " arg 1 0x" << hex <<  tdata->_data.arg1
-            << " pathname " << (char *) tdata->_data.arg1
+            << " pathname " << (char *) p->TranslateAddress(tdata->_data.arg1)
             << endl;
    }
 #if 0
@@ -1430,6 +1534,7 @@ class SYSSTATE_CONSUMER
             << " retval 0x" << hex << syscall_retval 
             << " fd 0x" << hex << tdata->_data.arg0
             << " buf 0x" << hex << tdata->_data.arg1
+            << " translated buf 0x" << hex << p->TranslateAddress(tdata->_data.arg1)
             << " count 0x" << hex << tdata->_data.arg2
             << endl;
        //printReadBuf(tdata->_data.arg1, tdata->_data.arg2);
@@ -1460,6 +1565,7 @@ class SYSSTATE_CONSUMER
 
   PIN_RWMUTEX     _consumerMutex;
   //for accessing TLS storage in the threads. initialized in the constructor
+  PINPLAY_ENGINE     *_pinplay_engine;
   TLS_KEY consumer_tls_key;
   string _in_state_rootdirname;
   string _in_state_workdirname;
@@ -1494,7 +1600,7 @@ class SYSSTATE
       "Print verbose information about syscalls"
       )
       { }
-    VOID Activate(PINPLAY_ENGINE *pinplay_engine)
+    INT32 Activate(PINPLAY_ENGINE *pinplay_engine)
     {
        BOOL loggerActive = pinplay_engine->IsLoggerActive();
        BOOL replayerActive = pinplay_engine->IsReplayerActive();
@@ -1509,7 +1615,7 @@ class SYSSTATE
         if(!_sysstateOutKnob.Value().empty())
           cerr << "Replayer inactive: ignoring '-sysstate:out " <<  _sysstateOutKnob.Value() 
             << "'" << endl;
-         return;
+         return 0;
       }
 
       // Skip the relogging case for now
@@ -1521,7 +1627,7 @@ class SYSSTATE
         if(!_sysstateOutKnob.Value().empty())
           cerr << "Logger active: ignoring '-sysstate:out " 
            <<  _sysstateOutKnob.Value() << "'" << endl;
-        return;
+        return 0;
       }
 
       KNOB_BASE * knobinjection = KNOB_BASE::FindKnob("replay:injection");
@@ -1536,11 +1642,28 @@ class SYSSTATE
              << endl;
           cerr << "-sysstate:in " <<  _sysstateInKnob.Value() <<
             " ignored." << endl;
+          return 0;
         }
         else {
+#if 0
+          //OS_FILE_ATTRIBUTES attr;
+          //if(OS_GetFileAttributes(_sysstateInKnob.Value().c_str(), &attr) !=  OS_RETURN_CODE_NO_ERROR)
+          struct stat statbuf;
+          if(stat(_sysstateInKnob.Value().c_str(), &statbuf) == -1)
+          {
+            cerr << "Missing sysstate directory" <<  _sysstateInKnob.Value() << endl;
+            ASSERTX(0);
+          }
+#endif
+          if(access(_sysstateInKnob.Value().c_str(), F_OK) == -1)
+          {
+            cerr << "Missing sysstate directory" <<  _sysstateInKnob.Value() << endl;
+            return 0;
+          }
           cerr << "Will consume sysstate from " <<  _sysstateInKnob.Value() 
             << endl;
-          _consumer = new SYSSTATE_CONSUMER(_sysstateInKnob.Value(), _sysstateVerboseKnob);
+          _consumer = new SYSSTATE_CONSUMER(pinplay_engine, _sysstateInKnob.Value(), _sysstateVerboseKnob);
+          return 1;
         }
       }
       if(!_sysstateOutKnob.Value().empty())
@@ -1552,13 +1675,16 @@ class SYSSTATE
             << endl;
          cerr << "-sysstate:out " <<  _sysstateOutKnob.Value() <<
             " ignored." << endl;
+         return 0;
         }
         else {
           cerr << "Will produce sysstate in " <<  _sysstateOutKnob.Value() 
              << ".sysstate" << endl;
           _producer = new SYSSTATE_PRODUCER(pinplay_engine, _sysstateOutKnob.Value(), _sysstateVerboseKnob);
+         return 1;
         }
       }
+      return 0;
     }
     private:
       SYSSTATE_PRODUCER *_producer;

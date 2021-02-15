@@ -102,7 +102,13 @@ int main(int argc, char * argv[])
             return 1;
     }
 
-    pbsysstate.Activate(&pinplay_engine);
+    if(pbsysstate.Activate(&pinplay_engine) == 0)
+    {
+      cerr << "SYSSTATE activation failed. Returning without replay. \n";
+      return 1;
+    }
+    
+ 
     // Start the program, never returns
     PIN_StartProgram();
 
