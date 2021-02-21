@@ -1,7 +1,7 @@
 /*BEGIN_LEGAL 
 BSD License 
 
-Copyright (c) 2020 Intel Corporation. All rights reserved.
+Copyright (c) 2021 Intel Corporation. All rights reserved.
  
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -129,25 +129,21 @@ END_LEGAL */
 #include <fcntl.h>
 #include <dirent.h>
 #include <limits.h> // for PATH_MAX definition
+#include <fcntl.h> // for  AT_FDCWD
 #include "pin.H"
 #include "instlib.H"
 #include "pinplay.H"
 
 using namespace std;
 namespace PINBALL_SYSSTATE{
+constexpr signed int MAXFD = 500;
+constexpr int CWDMAX = PATH_MAX;
 
 class READ_STATE;
-class FD_STATE;
 class FILE_STATE;
 
 LOCALTYPE typedef std::list<READ_STATE *> READ_STATE_LIST;
-LOCALTYPE typedef std::map<INT32, FD_STATE * > FD_MAP;
-LOCALTYPE typedef FD_MAP *FD_MAP_PTR;
-LOCALTYPE typedef std::map<INT32, FILE_STATE * > FILE_MAP;
-LOCALTYPE typedef std::list<FILE_STATE *> FILE_STATE_LIST;
-LOCALTYPE typedef std::list<FD_STATE *> FD_STATE_LIST;
-LOCALTYPE typedef FD_STATE_LIST *FD_STATE_LIST_PTR;
-LOCALTYPE typedef std::list< pair<string, string> > STRING_PAIR_LIST;
+LOCALTYPE typedef std::set<string> STRING_SET;
 union thread_data_t
 {
  struct
@@ -172,6 +168,16 @@ static BOOL IsAbsolutePathname(string pathname)
   return (pathname.c_str()[0] == '/');
 }
 
+static BOOL IsDummyFilename(string filename)
+{
+  return (strstr(filename.c_str(),"FD_") != NULL);
+}
+
+static BOOL IsCWDDirname(string filename)
+{
+  return (strstr(filename.c_str(),"CWD") != NULL);
+}
+
 /*! @ingroup PINBALL_SYSSTATE
 */
 
@@ -179,24 +185,27 @@ class READ_STATE
 {
  private:   
     ADDRINT _syscall_pc;
-    INT32 _count_req;
-    INT32 _count_act;
+    UINT32 _count_act;
     UINT32 _file_pos;
  public:   
+    UINT32 _count_req;
+    string _fname;
     ADDRINT  _buf_addr;
     CHAR * _shadow_buf;
     vector<bool> _byte_accessed; // supposed to use 1 bit per element
     READ_STATE(ADDRINT pc, ADDRINT buf_addr, INT32 count, 
-        INT32 retval, INT32 filepos)
+        INT32 retval, INT32 filepos, string fname)
     {
       _syscall_pc = pc;
       _buf_addr = buf_addr;
       ASSERT(count, "READ_STATE: count is zero");
       _count_req = count;
       _count_act = retval;
-      _shadow_buf = new CHAR[_count_req](); // zero initialized
+      _shadow_buf = new CHAR[_count_req];
+      bzero(_shadow_buf,_count_req);
       _byte_accessed.resize(_count_req, false);
       _file_pos = filepos;
+      _fname = fname;
     }
     BOOL ReadAddrInRange(ADDRINT read_addr) { 
       return (read_addr >= _buf_addr) 
@@ -212,6 +221,12 @@ class READ_STATE
 #endif
       for (UINT32 index = 0; index < bytes; index++)
       { 
+        if(index >= (_count_req - offset) )
+        {
+          ASSERT(index < (_count_req - offset), "SafeCopy() index out of bounds\n");
+          cerr << "WARNING: SafeCopy() index out of bounds\n";
+          break;
+        }
         if(!_byte_accessed[offset+index])
         {
           PIN_SafeCopy(base+index, (VOID *)(memea + index), 1);
@@ -221,109 +236,72 @@ class READ_STATE
     }
 
     VOID PrintReadState(){
-        cerr << "\tpc " << hex << _syscall_pc 
-             << " filepos " << hex << _file_pos 
-             << " buf_addr " << hex <<  _buf_addr 
+        cerr << "\tpc 0x" << hex << _syscall_pc 
+             << " fname " << hex << _fname 
+             << " filepos 0x" << hex << _file_pos 
+             << " buf_addr 0x" << hex <<  _buf_addr 
+             << " shadow_buf 0x" << hex <<  (ADDRINT)_shadow_buf
              << " count actual " << dec << _count_act << endl;
     }
-    VOID OutputReadState(INT32 dummy_fileFD){
+    UINT32 OutputReadState(INT32 dummy_fileFD){
       INT32 offset_ret = lseek(dummy_fileFD, _file_pos, SEEK_SET);
       ASSERTX(offset_ret != -1);
-      INT32 count_written = write(dummy_fileFD, _shadow_buf, _count_act);
-      ASSERTX(count_written == _count_act);
+      UINT32 wcount=0;
+      for (UINT32 index = 0; index < _count_req; index++)
+      { 
+        if(_byte_accessed[index])
+        {
+          INT32 count_written = write(dummy_fileFD, &_shadow_buf[index], 1);
+          ASSERTX(count_written == 1);
+          wcount++;
+        }
+        else
+        {
+          offset_ret = lseek(dummy_fileFD, 1, SEEK_CUR);
+          ASSERTX(offset_ret != -1);
+        }
+      } 
+      return wcount;
     }
 };
 
-// This is for files opened before the pinball beginning
-class FD_STATE
+class FILE_STATE 
 {
- private:   
-    UINT32 _current_file_pos;
-
  public:   
     INT32 _fd;
-    READ_STATE_LIST _read_state_list;
-    FD_STATE(INT32 fd): _fd(fd), _read_state_list() 
-    {
-      _current_file_pos = 0;
-    };
+    string _fname;
+    UINT32 _current_file_pos;
+
+    FILE_STATE(string fname, INT32 fd)
+    { 
+       ASSERT(fd < MAXFD, "file descriptor too big.\n");
+       _fname = fname; 
+       _fd = fd; 
+       _current_file_pos = 0;
+    }
 
     INT32 Fd() { return _fd; }
-
-    VOID AddReadState(ADDRINT pc, ADDRINT buf_addr, INT32 count, INT32 retval)
-    {
-      READ_STATE * rs = new READ_STATE(pc, buf_addr, count, retval,
-         _current_file_pos);
-      _read_state_list.push_back(rs);
-      _current_file_pos += retval;
-    }
 
     VOID SetFilePos(UINT32 retval)
     {
       _current_file_pos = retval;
     }
 
-    VOID PrintReadStateList()
+    static string CleanPathName(string pathstr)
     {
-      READ_STATE_LIST :: iterator it;
-      for ( it = _read_state_list.begin();
-           it != _read_state_list.end(); ++it)
+      char * path = (char *) pathstr.c_str();
+      char * tok = strstr(path, "/./");
+      string retval = pathstr;
+      if (tok)
       {
-        (*it)->PrintReadState();
-      }
-      cerr << '\n' ;
-    }
-
-    READ_STATE * FindReadState(ADDRINT memea, UINT32 bytes)
-    {
-      READ_STATE * retval = NULL;
-      READ_STATE_LIST :: iterator it;
-      for ( it = _read_state_list.begin();
-           it != _read_state_list.end(); ++it)
-      {
-        if((*it)->ReadAddrInRange(memea)
-              || (*it)->ReadAddrInRange(memea+bytes-1))
-        {
-          retval = *it; 
-        }
+        tok[0] = 0; // terminate 'path' at '.'
+        tok = tok+2; // get rid of leading "/."
+        retval = string(path) + string(tok);
       }
       return retval;
     }
 
-    VOID OutputReadStateListFD(string out_dirname)
-    {
-      ostringstream ss;
-      ss << _fd;
-      string fname = out_dirname + "/FD_" + ss.str();
-      //cerr << "OutputReadStateListFD() : " << fname << endl;
-      INT32 dummy_fileFD;
-      mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-      dummy_fileFD = open(fname.c_str(),O_WRONLY|O_CREAT|O_TRUNC, mode);
-      if (dummy_fileFD == -1)
-      {
-        cerr << "Could not open output  file " <<
-          fname.c_str() << endl;
-        ASSERTX(0);
-      }
-      READ_STATE_LIST :: iterator it;
-      for ( it = _read_state_list.begin();
-           it != _read_state_list.end(); ++it)
-      {
-        (*it)->OutputReadState(dummy_fileFD);
-      }
-    }
-};
-
-
-// This is for files opened during the pinball replay
-class FILE_STATE : public FD_STATE
-{
- public:   
-    string _fname;
-
-    FILE_STATE (string fname, INT32 fd):FD_STATE(fd){ _fname = fname; };
-
-    VOID CreatePath(string pathstr)
+    static VOID CreatePath(string pathstr)
     {
       char * path = (char *) pathstr.c_str();
       char * tok = strtok(path, "/");
@@ -354,13 +332,9 @@ class FILE_STATE : public FD_STATE
       }
     }
 
+#if 0
     VOID OutputReadStateListFile(string out_dirname)
     {
-#if 0
-      // replace '/' in _fname by '\'
-      replace(_fname.begin(), _fname.end(), '/', '\\');
-      string outfname = out_dirname + "/" + _fname;
-#endif
       CHAR * basefname = basename((CHAR *)_fname.c_str());
       CHAR * dirfname = dirname((CHAR *)_fname.c_str());
       //cerr << "basename : " << basefname << endl;
@@ -388,18 +362,21 @@ class FILE_STATE : public FD_STATE
       }
       close(dummy_fileFD);
     }
+#endif
 };
 
 class SYSSTATE_PRODUCER
 {
   public:
-    SYSSTATE_PRODUCER(PINPLAY_ENGINE *pinplay_engine, string statedirname, bool verbose):pre_existing_fd_map(), open_fd_map(), opened_file_list(), closed_fd_list()
+    SYSSTATE_PRODUCER(PINPLAY_ENGINE *pinplay_engine, string statedirname, bool verbose)
     {
       _out_state_rootdirname = statedirname + ".sysstate";
       _out_state_workdirname = statedirname + ".sysstate/workdir";
       _verbose = verbose;
-      first_brk_retval = 0;
-      last_brk_retval = 0;
+      _first_brk_retval = 0;
+      _last_brk_retval = 0;
+      _cwd_buf_addr = NULL;
+      bzero(_fd2fstate,MAXFD*sizeof(FILE_STATE *));
       cerr << "Producer " << statedirname << endl;
       PIN_AddSyscallEntryFunction(syscallEntryCallbackProducer, this);
       PIN_AddSyscallExitFunction(syscallExitCallbackProducer, this);
@@ -422,56 +399,69 @@ class SYSSTATE_PRODUCER
       return _out_state_workdirname.c_str();
     }
 
-  private:
-     static BOOL checkFDmap(FD_MAP_PTR ptrmap, 
-          ADDRINT memea_callback, UINT32 bytes,string *dis)
-     {
-       FD_MAP:: iterator itr;
-        for (itr = ptrmap->begin(); 
-          itr != ptrmap->end(); ++itr) 
-        { 
-          FD_STATE * fs = itr->second;
-          READ_STATE * rs = fs->FindReadState(memea_callback, bytes);
-          if (rs)
-          {
-#if 0
-            cerr << "checkFDmap:fd: " << dec << fs->_fd;
-            cerr << " mem: " << hex << memea_callback << " + " << dec << bytes << endl;
-            cerr << "checkFDmap(  memea_translated: " << hex << memea_callback << " bytes: " << dec << bytes << " " << *dis << endl;
-            cerr << "Found READ_STATE: offset " << dec << offset;
-            cerr << "  dst " << hex << (ADDRINT)rs->_shadow_buf+offset;
-            cerr << "  src " << hex << (VOID *) memea_callback;
-            cerr << "  count " << dec << bytes << endl;
-            cerr << "  byte 0 " << hex << *((UINT16 *)memea_callback) << endl;
-            rs->PrintReadState();
-            cerr << '\n' ;
-#endif
-            //PIN_SafeCopy(rs->_shadow_buf+offset,
-            //     (VOID *) memea_callback, bytes);
-            rs->SafeCopy((CHAR *)memea_callback, bytes);
-            return TRUE;
-          }
-        }
-        return FALSE;
+    VOID AddReadState(ADDRINT pc, ADDRINT buf_addr, INT32 req_count, INT32 act_count,
+        INT32 filepos, string fname)
+    {
+      if(act_count == 0) return; // read() returning zero is not interesting.
+      READ_STATE * rs = new READ_STATE(pc, buf_addr, req_count, act_count,
+         filepos, fname);
+      //rs->PrintReadState();
+      _read_state_list.push_front(rs);
     }
 
-     static BOOL checkFDlist(FD_STATE_LIST_PTR ptrlist, 
-          ADDRINT memea_callback, UINT32 bytes,string *dis)
+    VOID AddCWDState(ADDRINT pc, ADDRINT buf_addr, INT32 buflength)
+    {
+      READ_STATE * rs = new READ_STATE(pc, buf_addr, buflength, buflength,
+         0, "DUMMY");
+      _cwd_state_list.push_front(rs);
+    }
+
+  private:
+    READ_STATE * FindReadState(ADDRINT memea, UINT32 bytes)
+    {
+      READ_STATE * retval = NULL;
+      READ_STATE_LIST :: iterator it;
+      for ( it = _read_state_list.begin();
+           it != _read_state_list.end(); ++it)
+      {
+        if((*it)->ReadAddrInRange(memea)
+              && (*it)->ReadAddrInRange(memea+bytes-1))
+        {
+          retval = *it; 
+        }
+      }
+      return retval;
+    }
+
+
+    READ_STATE * FindCWDState(ADDRINT memea, UINT32 bytes)
+    {
+      READ_STATE * retval = NULL;
+      READ_STATE_LIST :: iterator it;
+      for ( it = _cwd_state_list.begin();
+           it != _cwd_state_list.end(); ++it)
+      {
+        if((*it)->ReadAddrInRange(memea)
+              && (*it)->ReadAddrInRange(memea+bytes-1))
+        {
+          retval = *it; 
+        }
+      }
+      return retval;
+    }
+
+     static VOID checkReadList(ADDRINT memea_callback, UINT32 bytes,string *dis, VOID *v)
      {
-       FD_STATE_LIST:: iterator itr;
-        for (itr = ptrlist->begin(); 
-          itr != ptrlist->end(); ++itr) 
-        { 
-          FD_STATE * fs = (*itr);
-          READ_STATE * rs = fs->FindReadState(memea_callback, bytes);
-          if (rs)
-          {
+        SYSSTATE_PRODUCER *p = (SYSSTATE_PRODUCER *) v;
+        READ_STATE * rs = p->FindReadState(memea_callback, bytes);
+        if (rs)
+        {
 #if 0
-            cerr << "checkFDlist:fd: " << dec << fs->_fd;
-            cerr << " mem: " << hex << memea_callback << " + " << dec << bytes << endl;
+            ADDRINT offset = (ADDRINT) (memea_callback - rs->_buf_addr); 
+            CHAR * base = rs->_shadow_buf  + offset;
             cerr << "checkFDlist(  memea_translated: " << hex << memea_callback << " bytes: " << dec << bytes << " " << *dis << endl;
             cerr << "Found READ_STATE: offset " << dec << offset;
-            cerr << "  dst " << hex << (ADDRINT)rs->_shadow_buf+offset;
+            cerr << "  dst 0x" << hex << (ADDRINT)base;
             cerr << "  src " << hex << (VOID *) memea_callback;
             cerr << "  count " << dec << bytes << endl;
             cerr << "  byte 0 " << hex << *((UINT16 *)memea_callback) << endl;
@@ -479,20 +469,37 @@ class SYSSTATE_PRODUCER
             cerr << '\n' ;
 #endif
             rs->SafeCopy((CHAR *)memea_callback, bytes);
-            return TRUE;
-          }
+            return;
         }
-        return FALSE;
+        rs = p->FindCWDState(memea_callback, bytes);
+        if (rs)
+        {
+#if 0
+            cerr << "Modifying CWD:READ_STATE: " << endl;
+            rs->PrintReadState();
+            ADDRINT offset = (ADDRINT) (memea_callback - rs->_buf_addr); 
+            CHAR * base = rs->_shadow_buf  + offset;
+            cerr << "checkFDlist(  memea_translated: " << hex << memea_callback << " bytes: " << dec << bytes << " " << *dis << endl;
+            cerr << "Found READ_STATE: offset " << dec << offset;
+            cerr << "  dst 0x" << hex << (ADDRINT)base;
+            cerr << "  src " << hex << (VOID *) memea_callback;
+            cerr << "  count " << dec << bytes << endl;
+            cerr << "  byte 0 " << hex << *((UINT16 *)memea_callback) << endl;
+            rs->PrintReadState();
+            cerr << '\n' ;
+#endif
+            rs->SafeCopy((CHAR *)memea_callback, bytes);
+            return;
+        }
     }
+
     static VOID opMemoryFunc(
         ADDRINT memea_orig,ADDRINT memea_callback, UINT32 bytes, ADDRINT ip,
             string *dis, VOID *v)
     {
       SYSSTATE_PRODUCER *p = (SYSSTATE_PRODUCER *) v;
         PIN_RWMutexReadLock(&(p->_producerMutex));
-        if(checkFDmap(&(p->open_fd_map), memea_callback, bytes, dis)) return;
-        if(checkFDmap(&(p->pre_existing_fd_map), memea_callback, bytes, dis)) return;
-        if(checkFDlist(&(p->closed_fd_list), memea_callback, bytes, dis)) return;
+        checkReadList(memea_callback, bytes, dis, v);
         PIN_RWMutexUnlock(&(p->_producerMutex));
     }
 
@@ -552,9 +559,47 @@ class SYSSTATE_PRODUCER
         ASSERTX(0);
       }
       ostringstream ss;
-      ss << "0x" << hex << p->first_brk_retval << "\n";
-      ss << "0x" << hex << p->last_brk_retval << "\n";
+      ss << "0x" << hex << p->_first_brk_retval << "\n";
+      ss << "0x" << hex << p->_last_brk_retval << "\n";
       const char * outstr = ss.str().c_str();
+      if (write(fid, outstr, strlen(outstr)) < 0 )
+      {
+        cerr << "Could not write to  file " <<
+          fname.c_str() << endl;
+        ASSERTX(0);
+      }
+    }
+
+    static VOID OutputCWD(string out_dirname, VOID *v)
+    {
+      SYSSTATE_PRODUCER *p = (SYSSTATE_PRODUCER *) v;
+      READ_STATE_LIST :: iterator cit;
+      cerr << "OutputCWD(): " << endl;
+      for ( cit = p->_cwd_state_list.begin();
+             cit != p->_cwd_state_list.end(); ++cit)
+      {
+       if (strlen( (*cit)->_shadow_buf))
+       {
+          cerr << " found non-empty CWD shadow buff " << (*cit)->_shadow_buf << endl;
+          p->_cwd_value = (*cit)->_shadow_buf;
+          break;
+       }
+      }
+
+      if (p->_cwd_value.empty()) return;
+
+      cerr << "cwd_value: " << p->_cwd_value << endl;
+      string fname = out_dirname + "/CWD.log";
+      INT32 fid;
+      mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+      fid = open(fname.c_str(),O_WRONLY|O_CREAT|O_TRUNC, mode);
+      if (fid == -1)
+      {
+        cerr << "Could not open output  file " <<
+          fname.c_str() << endl;
+        ASSERTX(0);
+      }
+      const char * outstr = p->_cwd_value.c_str();
       if (write(fid, outstr, strlen(outstr)) < 0 )
       {
         cerr << "Could not write to  file " <<
@@ -575,70 +620,117 @@ class SYSSTATE_PRODUCER
           ASSERTX(0);
         }
       }
-      if ( mkdir(p->_out_state_workdirname.c_str(), 0755) != 0)
+      string default_workdirname;
+      OutputCWD(p->_out_state_rootdirname, v);
+      if(p->_cwd_value.empty())
       {
-        if (errno != EEXIST)
+        if ( mkdir(p->_out_state_workdirname.c_str(), 0755) != 0)
         {
-          cerr << "Could not create output state directory " <<
-            p->_out_state_workdirname.c_str() << endl;
-          ASSERTX(0);
+          if (errno != EEXIST)
+          {
+            cerr << "Could not create output state directory " <<
+              p->_out_state_workdirname.c_str() << endl;
+            ASSERTX(0);
+          }
         }
       }
-      if(p->first_brk_retval != 0)
+      else
       {
-        OutputBRKvalues(p->_out_state_workdirname, v);
-      }
-      for (FD_MAP::iterator itr = p->pre_existing_fd_map.begin(); 
-          itr != p->pre_existing_fd_map.end(); ++itr) 
-      { 
-        FD_STATE * fs = itr->second;
-        cerr << " ROI used pre-existing FD : " << itr->first << endl;
-        fs->OutputReadStateListFD(p->_out_state_workdirname);
+        default_workdirname = p->_out_state_workdirname;
+        string new_workdirname = p->_out_state_rootdirname + p->_cwd_value;
+        cerr << "TODO: create symlink from " << new_workdirname  << " to " << default_workdirname  << endl;
+        FILE_STATE::CreatePath( new_workdirname);
 #if 0
-        cerr <<  " FD : " << itr->first 
-             << '\t' << itr->second << '\n'; 
-        fs->PrintReadStateList();
+        FILE_STATE::CreatePath( p->_out_state_workdirname);
+        string syscmd = "echo 'hi'; cd " + p->_out_state_rootdirname + "; pwd;  lndir ." + p->_cwd_value + " workdir";
+        //system(syscmd.c_str());
+        if(link(p->_out_state_workdirname.c_str(), default_workdirname.c_str())
+            != 0)
+        {
+          cerr << "Could not create symlink from " <<
+            p->_out_state_workdirname.c_str() << " to " << default_workdirname << endl;
+          ASSERTX(0);
+        }
 #endif
-      } 
-      FILE_STATE_LIST :: iterator it;
-      for ( it = p->opened_file_list.begin();
-           it != p->opened_file_list.end(); ++it)
+      }
+      if(p->_first_brk_retval != 0)
       {
-        FILE_STATE * fs = (*it);
-        cerr << " ROI opened file : " << fs->_fname << endl;
-        cerr << "               FD : " << fs->_fd << endl;
-        if(IsAbsolutePathname(fs->_fname))
-          fs->OutputReadStateListFile(p->_out_state_rootdirname);
+        OutputBRKvalues(p->_out_state_rootdirname, v);
+      }
+      STRING_SET :: iterator fit;
+      for ( fit = p->_fname_set.begin();
+           fit != p->_fname_set.end(); ++fit)
+      {
+        const CHAR * basefname = basename(fit->c_str());
+        const CHAR * dirfname = dirname(fit->c_str());
+        string outdir_name;
+        cerr << "Processing file " << *fit << endl;
+        cerr << "basename : " << basefname << endl;
+        cerr << "dirname : " << dirfname << endl;
+        if(IsAbsolutePathname(dirfname))
+        {
+          outdir_name = p->_out_state_rootdirname + dirfname;
+        }
         else
-          fs->OutputReadStateListFile(p->_out_state_workdirname);
+        {
+          if(IsDummyFilename(basefname))
+          {
+            outdir_name = dirfname; // out_state_workdir already baked in dirname
+          }
+          else if(IsCWDDirname(dirfname))
+          {
+            // dirfname starts with "CWD"
+            string cwd_dirname = p->_cwd_value;
+            outdir_name = p->_out_state_rootdirname + cwd_dirname;
+          }
+          else
+          {
+            outdir_name = p->_out_state_workdirname + dirfname;
+          }
+        }
+        FILE_STATE::CreatePath(outdir_name);
+        string outfname = outdir_name + "/" + basefname;
+        cerr << "outfname : " << outfname << endl;
+        INT32 dummy_fileFD;
+        mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+        dummy_fileFD = open(outfname.c_str(),O_WRONLY|O_CREAT|O_TRUNC, mode);
+        if (dummy_fileFD == -1)
+        {
+          cerr << "Could not open output  file " <<
+            outfname.c_str() << endl;
+          cerr << " errno " << errno << endl;
+          return;
+          //ASSERTX(0);
+        }
+        UINT32 write_count = 0;
+        UINT32 max_count_req = 0;
+        char * max_shadow_buf = NULL;
+        READ_STATE_LIST :: iterator rit;
+        for ( rit = p->_read_state_list.begin();
+             rit != p->_read_state_list.end(); ++rit)
+        {
+           //if((*rit)->_fname==*(fit)) (*rit)->PrintReadState();
+           if((*rit)->_fname == *fit)
+           {
+              write_count += (*rit)->OutputReadState(dummy_fileFD);
+              if((*rit)->_count_req > max_count_req) 
+              {
+                max_count_req = (*rit)->_count_req;
+                max_shadow_buf =  (*rit)->_shadow_buf;
+              }
+           }
+        }
+        if(write_count == 0)
+        {
+          // no dirty bytes found. Write out the largest buffer (empty)
+          UINT32 count_written = write(dummy_fileFD, max_shadow_buf, max_count_req);
+          ASSERTX(count_written == max_count_req);
+        }
+        close(dummy_fileFD);
+        cerr << "========================\n";
       }
     }
 
-    static FILE_STATE * FindOpenFile(VOID *v, string fname)
-    {
-      SYSSTATE_PRODUCER *p = (SYSSTATE_PRODUCER *) v;
-      FILE_STATE_LIST :: iterator it;
-      for ( it = p->opened_file_list.begin();
-           it != p->opened_file_list.end(); ++it)
-      {
-        FILE_STATE * fs = (*it);
-        if (fname.compare(fs->_fname) == 0) return fs;
-      }
-      return NULL;
-    }
- 
-    static FILE_STATE * FindOpenFileFd(VOID *v, INT32 fd)
-    {
-      SYSSTATE_PRODUCER *p = (SYSSTATE_PRODUCER *) v;
-      FILE_STATE_LIST :: iterator it;
-      for ( it = p->opened_file_list.begin();
-           it != p->opened_file_list.end(); ++it)
-      {
-        FILE_STATE * fs = (*it);
-        if (fs->_fd == fd) return fs;
-      }
-      return NULL;
-    }
     static VOID ThreadStartProducer(THREADID threadid, CONTEXT *ctxt,
         INT32 flags, VOID *v)
     {
@@ -732,21 +824,13 @@ class SYSSTATE_PRODUCER
             << " retval 0x" << hex << syscall_retval 
             << " arg 0 0x" << hex <<  tdata->_data.arg0
             << " bufptr " << p->TranslateAddress(tdata->_data.arg0)
-            << " *buf " << (char *)p->TranslateAddress(tdata->_data.arg0)
+            //<< " *buf " << (char *)p->TranslateAddress(tdata->_data.arg0)
             << endl;
    }
-#if 0
-            INT32 actsize = syscall_retval;
-            char * bufptr = (char *)p->TranslateAddress(tdata->_data.arg0);
-            ASSERT(actsize <= PATH_MAX, "getcwd() return value too large \n");
-            const char * workdir = p->WorkDirName();
-            ASSERT(strlen(workdir) <= PATH_MAX, "simuated workdir too large \n");
-            strcpy(bufptr, workdir);
-           if(p->_verbose)
-           {
-            cerr << " Modified *buf " << bufptr << endl;
-           }
-#endif
+          ADDRINT trans_addr = p->TranslateAddress(tdata->_data.arg0);
+          ASSERT(trans_addr, "getcwd() with NULL buffer seen\n");
+          INT32 buflength =  tdata->_data.arg1;
+          p->AddCWDState(tdata->_data.sys_ip, trans_addr, buflength);
           PIN_RWMutexUnlock(&(p->_producerMutex));
           break;
       }
@@ -781,19 +865,27 @@ class SYSSTATE_PRODUCER
                  cerr << " open:pathname " << fname
                  << " fd " << fd << endl;
               }
-              FD_MAP::iterator it = p->open_fd_map.find(fd);
-              ASSERTX( it == p->open_fd_map.end());
-              FILE_STATE * fs =  p->FindOpenFile(v, fname);
+              string dummy_cwd_value = "CWD/";
+              if(!IsAbsolutePathname(fname))
+              {
+                fname = dummy_cwd_value + fname;
+              }
+              string cleanfname = FILE_STATE::CleanPathName(fname);
+
+              ASSERT(fd < MAXFD, "file descriptor too big.\n");
+              FILE_STATE * fs =  p->_fd2fstate[fd];
               if (fs == NULL)
               {
-                fs = new FILE_STATE(fname, fd);
-                p->opened_file_list.push_back(fs);
+                fs = new FILE_STATE(cleanfname, fd);
               }
               else
               {
+                // this fd is getting re-used
                 fs->_fd = fd;
+                fs->_fname = cleanfname; 
+                fs->_current_file_pos = 0;
               }
-              p->open_fd_map[fd] = fs;
+              p->_fname_set.insert(cleanfname);
             }
           PIN_RWMutexUnlock(&(p->_producerMutex));
           break;
@@ -814,20 +906,31 @@ class SYSSTATE_PRODUCER
    }
             if ( fd != -1 )
             {
+              ASSERT(fd < MAXFD, "file descriptor too big.\n");
               string fname((char *)p->TranslateAddress(tdata->_data.arg1));
-              FD_MAP::iterator it = p->open_fd_map.find(fd);
-              ASSERTX( it == p->open_fd_map.end());
-              FILE_STATE * fs =  p->FindOpenFile(v, fname);
+              string dummy_cwd_value = "CWD/";
+              if(!IsAbsolutePathname(fname))
+              {
+                INT32 dirfd = tdata->_data.arg0;
+                ASSERT(dirfd == AT_FDCWD, "openat() dirfd not AT_FCWD\n");
+                fname = dummy_cwd_value + fname;
+              }
+             
+              string cleanfname = FILE_STATE::CleanPathName(fname);
+              FILE_STATE * fs =  p->_fd2fstate[fd];
               if (fs == NULL)
               {
-                fs = new FILE_STATE(fname, fd);
-                p->opened_file_list.push_back(fs);
+                fs = new FILE_STATE(cleanfname, fd);
+                p->_fd2fstate[fd] = fs;
               }
               else
               {
+                // this fd is getting re-used
                 fs->_fd = fd;
+                fs->_fname = cleanfname; 
+                fs->_current_file_pos = 0;
               }
-              p->open_fd_map[fd] = fs;
+              p->_fname_set.insert(cleanfname);
             }
           PIN_RWMutexUnlock(&(p->_producerMutex));
           break;
@@ -849,12 +952,14 @@ class SYSSTATE_PRODUCER
             if ( retval != -1 )
             {
               string fname((char *)p->TranslateAddress(tdata->_data.arg0));
-              FILE_STATE * fs =  p->FindOpenFile(v, fname);
-              if (fs == NULL)
+              string dummy_cwd_value = "CWD/";
+              if(!IsAbsolutePathname(fname))
               {
-                fs = new FILE_STATE(fname, -1);
-                p->opened_file_list.push_back(fs);
+                fname = dummy_cwd_value + fname;
               }
+              string cleanfname = FILE_STATE::CleanPathName(fname);
+              p->_fname_set.insert(cleanfname);
+              // Not adding to _fd2fstate[] because there is no 'fd' here
             }
         PIN_RWMutexUnlock(&(p->_producerMutex));
         break;
@@ -866,17 +971,25 @@ class SYSSTATE_PRODUCER
             if ( retval == 0 )
             {
               INT32 fd = tdata->_data.arg0;
-        FD_MAP::iterator it = p->open_fd_map.find(fd);
-        if ( it == p->open_fd_map.end())
-        {
-          it = p->pre_existing_fd_map.find(fd);
-          if ( it == p->pre_existing_fd_map.end())
-          {
-          // this is fstat() with an FD not associated with any open()
-            FD_STATE * fs = new FD_STATE(fd);
-            p->pre_existing_fd_map[fd] = fs;
-          }
-        }
+              if(p->_verbose){
+                 cerr << " fstat:fd " << fd << endl;
+              }
+              ASSERT(fd < MAXFD, "file descriptor too big.\n");
+              FILE_STATE * fs =  p->_fd2fstate[fd];
+              if (fs == NULL)
+              {
+                string outdir_name = (p->_out_state_workdirname);
+                ostringstream ss;
+                ss << fd;
+                string fname =  outdir_name + "/FD_" + ss.str();
+                fs = new FILE_STATE(fname, fd);
+                fs->_fname = fname;
+                p->_fd2fstate[fd] = fs;
+              }
+              else
+              {
+                // this fd exists already 
+              }
             }
         PIN_RWMutexUnlock(&(p->_producerMutex));
         break;
@@ -884,42 +997,23 @@ class SYSSTATE_PRODUCER
       case SYS_close:
       {
         PIN_RWMutexReadLock(&(p->_producerMutex));
-   if(p->_verbose)
-   {
-        cerr << " Producer:SysAfter SYS_close threadid " << threadid; 
-        cerr << " num 0x" << hex <<  tdata->_data.sys_num
+        if(p->_verbose)
+        {
+          cerr << " Producer:SysAfter SYS_close threadid " << threadid; 
+          cerr << " num 0x" << hex <<  tdata->_data.sys_num
             << hex << " ip 0x" << tdata->_data.sys_ip
             << " retval 0x" << hex << syscall_retval 
             << " arg 0 FD 0x" << hex <<  tdata->_data.arg0
             << endl;
-   }
-         INT32 fd = tdata->_data.arg0;
-         FD_MAP::iterator it = p->open_fd_map.find(fd);
-         if ( it != p->open_fd_map.end())
-         {
-            FD_STATE * fs = it->second;
-            // This fd is for a file open()ed in the ROI
-            if(p->_verbose){
-              cerr << "Erasing from open_fd_map FD " << fd << endl;
-            }
-            p->closed_fd_list.push_front(fs);
-            //p->open_fd_map.erase(it);
-            p->open_fd_map.erase(fd);
-         }
-         else
-         {
-            it = p->pre_existing_fd_map.find(fd);
-            if( it != p->pre_existing_fd_map.end())
-            {
-              // This fd is for a file open()ed prior to the ROI
-              // and was read() from in the ROI
-            }
-            else
-            {
-              // This fd is for a file open()ed prior to the ROI
-              // and was *NOT* read() from in the ROI
-            }
-         }
+        }
+        INT32 fd = tdata->_data.arg0;
+        if(p->_verbose){
+          cerr << " close:fd " << fd << endl;
+        }
+        ASSERT(fd < MAXFD, "file descriptor too big.\n");
+        FILE_STATE * fs =  p->_fd2fstate[fd];
+        ASSERT(fs, "close() for non-existing file_state.\n");
+        p->_fd2fstate[fd] = NULL;
         PIN_RWMutexUnlock(&(p->_producerMutex));
         break;
       }
@@ -927,10 +1021,10 @@ class SYSSTATE_PRODUCER
       {
         PIN_RWMutexReadLock(&(p->_producerMutex));
         INT32 fd = tdata->_data.arg0;
-   if(p->_verbose)
-   {
-        cerr << " Producer:SysAfter SYS_lseek threadid " << threadid; 
-        cerr << " num 0x" << hex <<  tdata->_data.sys_num
+        if(p->_verbose)
+        {
+          cerr << " Producer:SysAfter SYS_lseek threadid " << threadid; 
+          cerr << " num 0x" << hex <<  tdata->_data.sys_num
             << hex << " ip 0x" << tdata->_data.sys_ip
             << " retval 0x" << hex << syscall_retval 
             << " arg 0 FD 0x" << hex <<  tdata->_data.arg0
@@ -947,30 +1041,10 @@ class SYSSTATE_PRODUCER
 #endif
          if ( (fd != -1) && ((INT32)syscall_retval != -1))
          {
-          FD_MAP::iterator it = p->open_fd_map.find(fd);
-          if ( it != p->open_fd_map.end())
-          {
-            FD_STATE * fs = it->second;
-            // This fd is for a file open()ed in the ROI
+            FILE_STATE * fs =  p->_fd2fstate[fd];
+            ASSERT(fs, "seek() on non-exising fd\n");
             fs->SetFilePos(syscall_retval);
-          }
-         else
-         {
-            it = p->pre_existing_fd_map.find(fd);
-            if( it != p->pre_existing_fd_map.end())
-            {
-              // This fd is for a file open()ed prior to the ROI
-              // and was read() from in the ROI
-              FD_STATE * fs = it->second;
-              fs->SetFilePos(syscall_retval);
-            }
-            else
-            {
-              // This fd is for a file open()ed prior to the ROI
-              // and was *NOT* read() from in the ROI
-            }
          }
-        }
         PIN_RWMutexUnlock(&(p->_producerMutex));
         break;
       }
@@ -980,55 +1054,54 @@ class SYSSTATE_PRODUCER
 #if defined(TARGET_LINUX) && defined(TARGET_IA32)
         ASSERT(0, "mmap() handling on 32-bit Linux NIY\n");
 #endif
+        //void *mmap(void *addr, size_t length, int prot, int flags,
+        //          int fd, off_t offset);
+
         PIN_RWMutexReadLock(&(p->_producerMutex));
-          INT32 fd = tdata->_data.arg4;
-          UINT32 length = tdata->_data.arg1;
-         if ( (fd != -1) && ((INT32)syscall_retval != -1))
-         {
+        INT32 fd = tdata->_data.arg4;
+        UINT32 length = tdata->_data.arg1;
+        UINT32 offset = tdata->_data.arg5;
+        if ( (fd != -1) && ((INT32)syscall_retval != -1))
+        {
           ADDRINT mapped_addr = p->TranslateAddress(syscall_retval);
-   if(p->_verbose)
-   {
-        cerr << " Producer:SysAfter SYS_mmap? threadid " << threadid; 
-        cerr << " num 0x" << hex <<  tdata->_data.sys_num
-            << hex << " ip 0x" << tdata->_data.sys_ip
-            << " retval 0x" << hex << syscall_retval 
-            << " translated retval 0x" << hex << mapped_addr 
-            << " length " << dec <<  length
-            << " fd " << dec <<  fd
-            << endl;
-   }
-          FD_MAP::iterator it = p->open_fd_map.find(fd);
-          if ( it != p->open_fd_map.end())
+          if(p->_verbose)
           {
-            FD_STATE * fs = it->second;
-            fs->AddReadState(tdata->_data.sys_ip, mapped_addr,
-              length, length);
+            cerr << " Producer:SysAfter SYS_mmap? threadid " << threadid; 
+            cerr << " num 0x" << hex <<  tdata->_data.sys_num
+              << hex << " ip 0x" << tdata->_data.sys_ip
+              << " retval 0x" << hex << syscall_retval 
+              << " translated retval 0x" << hex << mapped_addr 
+              << " length " << dec <<  length
+              << " offset " << dec <<  offset
+              << " fd " << dec <<  fd
+              << endl;
+          }
+          FILE_STATE * fs =  p->_fd2fstate[fd];
+          if (fs) 
+          {
+            p->AddReadState(tdata->_data.sys_ip, mapped_addr, length, length, offset,
+                 fs->_fname);
             if(p->_verbose){
-              cerr << "Adding MMAP info as ReadState to  open_fd_map FD " << fd << endl;
-            }
+              cerr << "Adding MMAP info as ReadState to  existing FD " 
+                  << fd << " " << fs->_fname << endl;
+             } 
           }
           else
           {
-            it = p->pre_existing_fd_map.find(fd);
-            if ( it != p->pre_existing_fd_map.end())
-            {
-              // this is mmap() to an FD not associated with any open()
-              if(p->_verbose){
-                cerr << "Found mmap :  pre_existing FD " << fd << endl;
-              }
-              FD_STATE * fs = new FD_STATE(fd);
-              fs->AddReadState(tdata->_data.sys_ip, mapped_addr,
-                length, length);
-              if(p->_verbose){
-                cerr << "Adding MMAP info as ReadState to  open_fd_map FD " << fd << endl;
-              }
-              p->pre_existing_fd_map[fd] = fs;
+            string outdir_name = (p->_out_state_workdirname);
+            ostringstream ss;
+            ss << fd;
+            string fname =  outdir_name + "/FD_" + ss.str();
+            fs = new FILE_STATE(fname, fd);
+            fs->_current_file_pos = offset;
+            fs->_fname = fname;
+            p->AddReadState(tdata->_data.sys_ip, mapped_addr, length, length, offset,
+                 fname);
+            if(p->_verbose){
+                cerr << "Adding MMAP info as ReadState to  new FD " << fd << endl;
             }
-            else
-            {
-              ASSERT(0,"Only one mmap allowed for a given FD");
-              //FD_STATE * fs = it->second;
-            }
+            p->_fname_set.insert(fname);
+            p->_fd2fstate[fd] = fs;
           }
         }
         PIN_RWMutexUnlock(&(p->_producerMutex));
@@ -1037,10 +1110,10 @@ class SYSSTATE_PRODUCER
       case SYS_read:
       {
         PIN_RWMutexReadLock(&(p->_producerMutex));
-   if(p->_verbose)
-   {
-        cerr << " Producer:SysAfter SYS_read threadid " << threadid; 
-        cerr << " num " << tdata->_data.sys_num
+        if(p->_verbose)
+        {
+          cerr << " Producer:SysAfter SYS_read threadid " << threadid; 
+          cerr << " num " << tdata->_data.sys_num
             << hex << " ip 0x" << tdata->_data.sys_ip
             << " retval 0x" << hex << syscall_retval 
             << " fd 0x" << hex << tdata->_data.arg0
@@ -1048,8 +1121,8 @@ class SYSSTATE_PRODUCER
             << " translated buf 0x" << hex << p->TranslateAddress(tdata->_data.arg1)
             << " count 0x" << hex << tdata->_data.arg2
             << endl;
-       //printReadBuf(tdata->_data.arg1, tdata->_data.arg2);
-   }
+        //printReadBuf(tdata->_data.arg1, tdata->_data.arg2);
+        }
 #if 0
             << " arg0 " << tdata->_data.arg0
             << " arg1 " << tdata->_data.arg1
@@ -1059,53 +1132,46 @@ class SYSSTATE_PRODUCER
             << " arg5 " << tdata->_data.arg5
             << endl;
 #endif
-        INT32 fd = tdata->_data.arg0;
-        FD_MAP::iterator it = p->open_fd_map.find(fd);
-        if ( it != p->open_fd_map.end())
-        {
-          FD_STATE * fs = it->second;
-          fs->AddReadState(tdata->_data.sys_ip, p->TranslateAddress(tdata->_data.arg1),
-            tdata->_data.arg2, syscall_retval);
-          if(p->_verbose){
-            cerr << "Adding ReadState to  open_fd_map FD " << fd << endl;
-          }
-        }
-        else
-        {
-          it = p->pre_existing_fd_map.find(fd);
-          if ( it == p->pre_existing_fd_map.end())
+          INT32 fd = tdata->_data.arg0;
+          ADDRINT trans_addr = p->TranslateAddress(tdata->_data.arg1);
+          INT32 count_req =  tdata->_data.arg2;
+          INT32 count_act =  syscall_retval;
+          FILE_STATE * fs =  p->_fd2fstate[fd];
+          if (fs) 
           {
-          // this is read() from an FD not associated with any open()
-          // This must be the first read from pre_existing FD
+            p->AddReadState(tdata->_data.sys_ip, trans_addr, count_req, count_act, 
+               fs->_current_file_pos, fs->_fname);
+            fs->_current_file_pos += count_act;
             if(p->_verbose){
-              cerr << "Found first read:  pre_existing FD " << fd << endl;
-            }
-            FD_STATE * fs = new FD_STATE(fd);
-            fs->AddReadState(tdata->_data.sys_ip, p->TranslateAddress(tdata->_data.arg1),
-              tdata->_data.arg2, syscall_retval);
-            p->pre_existing_fd_map[fd] = fs;
-            if(p->_verbose){
-              cerr << "Adding ReadState to  pre_existing_fd_map FD " << fd << endl;
-            }
+              cerr << "Adding ReadState to  existing FD " 
+                  << fd << " " << fs->_fname << endl;
+             } 
           }
           else
           {
-            FD_STATE * fs = it->second;
-            fs->AddReadState(tdata->_data.sys_ip, p->TranslateAddress(tdata->_data.arg1),
-              tdata->_data.arg2, syscall_retval);
+            string outdir_name = (p->_out_state_workdirname);
+            ostringstream ss;
+            ss << fd;
+            string fname =  outdir_name + "/FD_" + ss.str();
+            fs = new FILE_STATE(fname, fd);
+            p->AddReadState(tdata->_data.sys_ip, trans_addr, count_req, count_act, 
+               fs->_current_file_pos, fs->_fname);
+            fs->_current_file_pos += count_act;
             if(p->_verbose){
-              cerr << "Adding ReadState to  pre_existing_fd_map FD " << fd << endl;
+                cerr << "Adding ReadState to  new FD " 
+                  << fd << " " << fs->_fname << endl;
             }
+            p->_fname_set.insert(fname);
+            p->_fd2fstate[fd] = fs;
           }
-        }
         PIN_RWMutexUnlock(&(p->_producerMutex));
         break;
       }
       case SYS_write:
       {
         PIN_RWMutexReadLock(&(p->_producerMutex));
-   if(p->_verbose)
-   {
+        if(p->_verbose)
+        {
         cerr << " Producer:SysAfter SYS_write threadid " << threadid; 
         cerr << " num " << tdata->_data.sys_num
             << hex << " ip 0x" << tdata->_data.sys_ip
@@ -1115,47 +1181,29 @@ class SYSSTATE_PRODUCER
             << " translated buf 0x" << hex << p->TranslateAddress(tdata->_data.arg1)
             << " count 0x" << hex << tdata->_data.arg2
             << endl;
-   }
-#if 0
-            << " arg0 " << tdata->_data.arg0
-            << " arg1 " << tdata->_data.arg1
-            << " arg2 " << tdata->_data.arg2
-            << " arg3 " << tdata->_data.arg3
-            << " arg4 " << tdata->_data.arg4
-            << " arg5 " << tdata->_data.arg5
-            << endl;
-#endif
-        INT32 fd = tdata->_data.arg0;
-        FD_MAP::iterator it = p->open_fd_map.find(fd);
-        if ( it != p->open_fd_map.end())
-        {
-          if(p->_verbose)
-          {
-            cerr << "Write to  open_fd_map FD found" << fd << endl;
-          }
         }
-        else
-        {
-          it = p->pre_existing_fd_map.find(fd);
-          if ( it == p->pre_existing_fd_map.end())
+          INT32 fd = tdata->_data.arg0;
+          FILE_STATE * fs =  p->_fd2fstate[fd];
+          if (fs) 
           {
-          // this is write() to an FD not associated with any open()
-          // This must be the first write to the pre_existing FD
-            FD_STATE * fs = new FD_STATE(fd);
-            p->pre_existing_fd_map[fd] = fs;
-            if(p->_verbose)
-            {
-              cerr << "First write to  pre_existing_fd_map FD found FD==" << fd << endl;
-            }
+            if(p->_verbose){
+              cerr << "Write  to  existing FD " 
+                  << fd << " " << fs->_fname << endl;
+             } 
           }
           else
           {
-            if(p->_verbose)
-            {
-              cerr << "Write to  pre_existing_fd_map FD found FD==" << fd << endl;
+            string outdir_name = (p->_out_state_workdirname);
+            ostringstream ss;
+            ss << fd;
+            string fname =  outdir_name + "/FD_" + ss.str();
+            fs = new FILE_STATE(fname, fd);
+            if(p->_verbose){
+                cerr << "Write  to  new FD " 
+                  << fd << " " << fs->_fname << endl;
             }
+            p->_fd2fstate[fd] = fs;
           }
-        }
         PIN_RWMutexUnlock(&(p->_producerMutex));
         break;
       }
@@ -1172,11 +1220,11 @@ class SYSSTATE_PRODUCER
             cerr << " WARNING:SYS_brk return value " << hex << syscall_retval
               << " does not match arg0 " << hex << tdata->_data.arg0   << endl;
         }
-        if(p->first_brk_retval == 0)
+        if(p->_first_brk_retval == 0)
         {
-          p->first_brk_retval = syscall_retval;
+          p->_first_brk_retval = syscall_retval;
         }
-        p->last_brk_retval = syscall_retval;
+        p->_last_brk_retval = syscall_retval;
    if(p->_verbose)
    {
         cerr << " Producer:SysAfter SYS_brk threadid " << threadid; 
@@ -1195,14 +1243,16 @@ class SYSSTATE_PRODUCER
   PINPLAY_ENGINE     *_pinplay_engine;
   //for accessing TLS storage in the threads. initialized in the constructor
   TLS_KEY producer_tls_key;
-  FD_MAP pre_existing_fd_map;
-  FD_MAP open_fd_map;
-  FILE_STATE_LIST opened_file_list;
-  FD_STATE_LIST closed_fd_list;
+  STRING_SET _fname_set;
+  FILE_STATE * _fd2fstate[MAXFD];
+  READ_STATE_LIST _read_state_list;
+  READ_STATE_LIST _cwd_state_list;
   string _out_state_rootdirname;
   string _out_state_workdirname;
-  ADDRINT first_brk_retval;
-  ADDRINT last_brk_retval;
+  char * _cwd_buf_addr;
+  string _cwd_value;
+  ADDRINT _first_brk_retval;
+  ADDRINT _last_brk_retval;
   bool _verbose;
 };
 
@@ -1215,6 +1265,7 @@ class SYSSTATE_CONSUMER
       _in_state_rootdirname = statedirname;
       _in_state_workdirname = statedirname + "/workdir";
       _verbose = verbose;
+      bzero(_cwd_path, CWDMAX);
       cerr << "Consumer " << statedirname << endl;
       PIN_AddSyscallEntryFunction(syscallEntryCallbackConsumer, this);
       PIN_AddSyscallExitFunction(syscallExitCallbackConsumer, this);
@@ -1235,6 +1286,41 @@ class SYSSTATE_CONSUMER
     {
       return _in_state_workdirname.c_str();
     }
+    
+    string CWDName()
+    {
+      if(IsAbsolutePathname(_in_state_rootdirname))
+      {
+        if (_cwd_path[0] == 0)
+        {
+          return _in_state_workdirname;
+        }
+        else
+        {
+          string cwdstring = _in_state_rootdirname + _cwd_path;
+          return cwdstring;
+        }
+      }
+      else
+      {
+        char mycwd[CWDMAX];
+        if (getcwd(mycwd, CWDMAX-1) == NULL)
+        {
+          cerr << "CWDName():ERROR with getcwd() " << endl;
+          ASSERTX(0);
+        }
+        if (_cwd_path[0] == 0)
+        {
+          string cwdstring = mycwd + _in_state_workdirname;
+          return cwdstring;
+        }
+        else
+        {
+          string cwdstring = mycwd + string("/") + _in_state_rootdirname + _cwd_path;
+          return cwdstring;
+        }
+      }
+    }
 
   private:
     static VOID StartConsumer(VOID *v)
@@ -1242,9 +1328,22 @@ class SYSSTATE_CONSUMER
       SYSSTATE_CONSUMER *p = (SYSSTATE_CONSUMER *) v;
       DIR *indir;
       struct dirent *ent;
-      indir = opendir(p->_in_state_workdirname.c_str());
+      indir = opendir(p->_in_state_rootdirname.c_str());
       if (indir != NULL)
       {
+        string cwdfname = p->_in_state_rootdirname  + "/" + "CWD.log";
+        cerr << " Opening  " << cwdfname << endl;
+        INT32 cwdFd = open(cwdfname.c_str(), O_RDWR, S_IRWXU);
+        if (cwdFd != -1 ) {
+          cerr << "Opened " << cwdfname << endl;
+          if (read(cwdFd, p->_cwd_path, CWDMAX) == 0 )
+          {
+            cerr << "Could not read from file " <<
+              cwdfname.c_str() << endl;
+          }
+          cerr << "set _cwd_path " << p->_cwd_path << endl;
+          close(cwdFd);
+        }
         while((ent = readdir(indir)) != NULL)
         {
          string origfname =  ent->d_name;
@@ -1365,11 +1464,18 @@ class SYSSTATE_CONSUMER
         PIN_RWMutexReadLock(&(p->_consumerMutex));
           string sysfname; 
           string fname((char *)p->TranslateAddress(tdata->_data.arg1));
-          //cerr << " openat:pathname " << fname;
-          if(IsAbsolutePathname(fname))
-            sysfname = p->_in_state_rootdirname  + "/" + fname;
-          else
-            sysfname = p->_in_state_workdirname  + "/" + fname;
+          if(!IsAbsolutePathname(fname))
+          {
+            INT32 dirfd = tdata->_data.arg0;
+            ASSERT(dirfd == AT_FDCWD, "openat() dirfd not AT_FCWD\n");
+            string cwd_value = p->CWDName();
+            const char * fnameval = fname.c_str();
+            if(fnameval[0] == '.')
+            {
+             fnameval = fnameval+1;
+            }
+            sysfname = cwd_value + fnameval;
+          }
           if (access(sysfname.c_str(), F_OK) !=-1 )
           {
             //cerr << " will use " << sysfname << endl;
@@ -1441,10 +1547,16 @@ class SYSSTATE_CONSUMER
             << " *buf " << (char *)p->TranslateAddress(tdata->_data.arg0)
             << endl;
    }
-#if 0
             INT32 actsize = syscall_retval;
-            ASSERT(actsize <= PATH_MAX, "getcwd() return value too large \n");
-#endif
+            char * bufptr = (char *)p->TranslateAddress(tdata->_data.arg0);
+            ASSERT(actsize <= CWDMAX, "getcwd() return value too large \n");
+            string workdir = p->CWDName();
+            ASSERT(strlen(workdir.c_str()) <= CWDMAX, "simulated workdir too large \n");
+            strcpy(bufptr, workdir.c_str());
+           if(p->_verbose)
+           {
+            cerr << " Modified *buf " << bufptr << endl;
+           }
           PIN_RWMutexUnlock(&(p->_consumerMutex));
           break;
       }
@@ -1569,6 +1681,7 @@ class SYSSTATE_CONSUMER
   TLS_KEY consumer_tls_key;
   string _in_state_rootdirname;
   string _in_state_workdirname;
+  char _cwd_path[CWDMAX];
   bool _verbose;
 };
 
