@@ -168,10 +168,12 @@ static BOOL IsAbsolutePathname(string pathname)
   return (pathname.c_str()[0] == '/');
 }
 
+#if 0
 static BOOL IsDummyFilename(string filename)
 {
   return (strstr(filename.c_str(),"FD_") != NULL);
 }
+#endif
 
 static BOOL IsCWDDirname(string filename)
 {
@@ -371,7 +373,7 @@ class SYSSTATE_PRODUCER
     SYSSTATE_PRODUCER(PINPLAY_ENGINE *pinplay_engine, string statedirname, bool verbose)
     {
       _out_state_rootdirname = statedirname + ".sysstate";
-      _out_state_workdirname = statedirname + ".sysstate/workdir";
+      _out_state_workdirname = statedirname + ".sysstate"; // will be changed to $CWD
       _verbose = verbose;
       _first_brk_retval = 0;
       _last_brk_retval = 0;
@@ -622,23 +624,11 @@ class SYSSTATE_PRODUCER
       }
       string default_workdirname;
       OutputCWD(p->_out_state_rootdirname, v);
-      if(p->_cwd_value.empty())
-      {
-        if ( mkdir(p->_out_state_workdirname.c_str(), 0755) != 0)
-        {
-          if (errno != EEXIST)
-          {
-            cerr << "Could not create output state directory " <<
-              p->_out_state_workdirname.c_str() << endl;
-            ASSERTX(0);
-          }
-        }
-      }
-      else
+      if(!p->_cwd_value.empty())
       {
         default_workdirname = p->_out_state_workdirname;
         string new_workdirname = p->_out_state_rootdirname + p->_cwd_value;
-        cerr << "TODO: create symlink from " << new_workdirname  << " to " << default_workdirname  << endl;
+        //cerr << "TODO: create symlink from " << new_workdirname  << " to " << default_workdirname  << endl;
         FILE_STATE::CreatePath( new_workdirname);
 #if 0
         FILE_STATE::CreatePath( p->_out_state_workdirname);
@@ -673,11 +663,7 @@ class SYSSTATE_PRODUCER
         }
         else
         {
-          if(IsDummyFilename(basefname))
-          {
-            outdir_name = dirfname; // out_state_workdir already baked in dirname
-          }
-          else if(IsCWDDirname(dirfname))
+          if(IsCWDDirname(dirfname))
           {
             // dirfname starts with "CWD"
             string cwd_dirname = p->_cwd_value;
@@ -978,10 +964,9 @@ class SYSSTATE_PRODUCER
               FILE_STATE * fs =  p->_fd2fstate[fd];
               if (fs == NULL)
               {
-                string outdir_name = (p->_out_state_workdirname);
                 ostringstream ss;
                 ss << fd;
-                string fname =  outdir_name + "/FD_" + ss.str();
+                string fname =  "CWD/FD_" + ss.str();
                 fs = new FILE_STATE(fname, fd);
                 fs->_fname = fname;
                 p->_fd2fstate[fd] = fs;
@@ -1088,10 +1073,9 @@ class SYSSTATE_PRODUCER
           }
           else
           {
-            string outdir_name = (p->_out_state_workdirname);
             ostringstream ss;
             ss << fd;
-            string fname =  outdir_name + "/FD_" + ss.str();
+            string fname =  "CWD/FD_" + ss.str();
             fs = new FILE_STATE(fname, fd);
             fs->_current_file_pos = offset;
             fs->_fname = fname;
@@ -1152,7 +1136,7 @@ class SYSSTATE_PRODUCER
             string outdir_name = (p->_out_state_workdirname);
             ostringstream ss;
             ss << fd;
-            string fname =  outdir_name + "/FD_" + ss.str();
+            string fname =  "CWD/FD_" + ss.str();
             fs = new FILE_STATE(fname, fd);
             p->AddReadState(tdata->_data.sys_ip, trans_addr, count_req, count_act, 
                fs->_current_file_pos, fs->_fname);
@@ -1196,7 +1180,7 @@ class SYSSTATE_PRODUCER
             string outdir_name = (p->_out_state_workdirname);
             ostringstream ss;
             ss << fd;
-            string fname =  outdir_name + "/FD_" + ss.str();
+            string fname =  "CWD/FD_" + ss.str();
             fs = new FILE_STATE(fname, fd);
             if(p->_verbose){
                 cerr << "Write  to  new FD " 
@@ -1263,7 +1247,7 @@ class SYSSTATE_CONSUMER
     SYSSTATE_CONSUMER(PINPLAY_ENGINE *pinplay_engine, string statedirname, bool verbose)
     {
       _in_state_rootdirname = statedirname;
-      _in_state_workdirname = statedirname + "/workdir";
+      _in_state_workdirname = statedirname;
       _verbose = verbose;
       bzero(_cwd_path, CWDMAX);
       cerr << "Consumer " << statedirname << endl;
@@ -1342,6 +1326,7 @@ class SYSSTATE_CONSUMER
               cwdfname.c_str() << endl;
           }
           cerr << "set _cwd_path " << p->_cwd_path << endl;
+          p->_in_state_workdirname  += p->_cwd_path;
           close(cwdFd);
         }
         while((ent = readdir(indir)) != NULL)
@@ -1355,7 +1340,7 @@ class SYSSTATE_CONSUMER
             string fdstr= origfname.substr(origfname.find('_')+1);
             INT32 origFd = atoi(fdstr.c_str());
             INT32 currentFd = -1;
-            string sysfname = p->_in_state_workdirname  + "/" + origfname;
+            string sysfname = p->_in_state_workdirname + origfname;
             cerr << " Pre-opened FD file " << sysfname << endl;
             //currentFd = open(sysfname.c_str(), O_RDONLY|O_WRONLY);
             currentFd = open(sysfname.c_str(), O_RDWR, S_IRWXU);

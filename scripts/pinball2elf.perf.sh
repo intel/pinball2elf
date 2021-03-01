@@ -4,6 +4,7 @@ export PINBALL2ELFLOC=`dirname $myloc`/src
 export PINBALL2ELF=$PINBALL2ELFLOC"/pinball2elf"
 export INST=`dirname $myloc`/instrumentation
 TMPDIR=/tmp
+CWD=""
 if [ ! -z $P2E_TEMP ];
 then
    TMPDIR=$P2E_TEMP
@@ -56,19 +57,19 @@ PREOPEN()
   then
     echo "     lte_write(1, "\"WARNING: ELFie will open files with absolute pathname. Consider using 'chroot'.\\\n\"", sizeof("\"WARNING: ELFie will open files with absolute pathname. Consider using 'chroot'.\\\n\"")-1);" >> $cfile
   fi
-  nonFDcount=`ls $sysstate/workdir | grep -v FD_ | wc -l`
+  nonFDcount=`ls $sysstate | grep -v FD_ | wc -l`
   if [ $nonFDcount -gt 1 ];
   then
-    echo "     lte_write(1, "\"ELFie will open local files. Must be in 'sysstate/workdir' to succeed.\\\n\"", sizeof("\"ELFie will open local files. Must be in 'sysstate/workdir' to succeed.\\\n\"")-1);" >> $cfile
+    echo "     lte_write(1, "\"ELFie will open local files. Must be in \'sysstate$CWD\' to succeed.\\\n\"", sizeof("\"ELFie will open local files. Must be in \'sysstate$CWD\' to succeed.\\\n\"")-1);" >> $cfile
   fi
   if test "$( find $sysstate -name "FD_*" -print -quit)"
   then
     echo "int myfd = 0;" >> $cfile
     echo "     lte_write(1, "\"preopen_files\(\):\"", sizeof("\"preopen_files\(\):\"")-1);" >> $cfile
-    echo "     lte_write(1, "\"#must be in 'sysstate/workdir' to succeed \\\n\"", sizeof("\"#must be in 'sysstate/workdir' to succeed \\\n\"")-1);" >> $cfile
+    echo "     lte_write(1, "\"#must be in \'sysstate$CWD\' to succeed \\\n\"", sizeof("\"#must be in \'sysstate$CWD\' to succeed \\\n\"")-1);" >> $cfile
     for p in `find $sysstate -name "FD_*"`
     do
-#pinball/perlbench-r.3_58573_globalr5_warmupendPC0x0004c7c6b_warmupendPCCount138041_warmuplength800000017_endPC0x0004d1d7c_endPCCount96403_length200000010_multiplier7-000_005_0-05600.0.sysstate/workdir/FD_0
+#pinball/perlbench-r.3_58573_globalr5_warmupendPC0x0004c7c6b_warmupendPCCount138041_warmuplength800000017_endPC0x0004d1d7c_endPCCount96403_length200000010_multiplier7-000_005_0-05600.0.sysstate/FD_0
       f=`basename $p` 
       fd=`echo $f | awk -F"_" '{print $2}'`
       echo "  myfd = lte_syscall(__NR_open, (uint64_t)\"$f\", O_RDWR,S_IRWXU,0,0,0);" >> $cfile
@@ -307,7 +308,7 @@ fi
           tbasename=`basename $textfile | sed '/.bz2/s///'`
           bunzip2 -c $textfile > $tmpbasedir/$tbasename
         done
-        for otherfile in `ls $basedir | grep -v "reg.bz2"| grep -v "\.text.bz2"`
+        for otherfile in `ls $basedir | grep -a -v "reg.bz2"| grep -a -v "\.text.bz2" | grep -a -v sysstate`
         do
           obasename=`basename $otherfile`
           srcfile=`readlink -f $basedir/$otherfile`
@@ -322,7 +323,7 @@ fi
     if test "$( find $basedir -name "$basename*.sysstate" -print -quit)"
     then
       sysstate=`find $basedir -name "$basename*.sysstate"`
-      DEST=$sysstate/workdir/$BNAME.perf.elfie
+      DEST=$sysstate/$BNAME.perf.elfie
     fi
     cat $INST/perf_callbacks.c | awk -v NTHREADS=$nthreads -v PCCOUNTLIST="$pccountlist" -v WPCCOUNTLIST="$wpccountlist"  -v PCADDRLIST="$pcaddrlist" -v WPCADDRLIST="$wpcaddrlist" -v ICOUNTLIST="$icountlist" -v WICOUNTLIST="$wicountlist" -v PREFIX=$prefix '
      /FILEDECL/ {
@@ -356,6 +357,13 @@ fi
     {print $0}' > $TMPDIR/perf_callbacks.$$.c
     if [ ! -z $sysstate ];
     then
+      if test "$( find $sysstate -name "CWD.log" -print -quit)"
+      then
+        CWDfile=`find $sysstate -name "CWD.log"`
+        echo "CWDFILE $CWDfile"
+        CWD=`cat $CWDfile`
+        echo "CWD set to $CWD"
+      fi
       PREOPEN $sysstate $TMPDIR/perf_callbacks.$$.c
     else
       echo "WARNING: No sysstate directory exists for $BNAME"
