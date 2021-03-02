@@ -4,7 +4,7 @@ export PINBALL2ELFLOC=`dirname $myloc`/src
 export PINBALL2ELF=$PINBALL2ELFLOC"/pinball2elf"
 export INST=`dirname $myloc`/instrumentation
 export TMPDIR=/tmp
-CWD=""
+export CWD=""
 if [ ! -z $P2E_TEMP ];
 then
    export TMPDIR=$P2E_TEMP
@@ -140,6 +140,13 @@ fi
       {print $0}'> $TMPDIR/sim_callbacks.$$.c
     if [ ! -z $sysstate ];
     then
+      if test "$( find $sysstate -name "CWD.log" -print -quit)"
+      then
+        CWDfile=`find $sysstate -name "CWD.log"`
+        echo "CWDFILE $CWDfile"
+        CWD=`cat $CWDfile`
+        echo "CWD set to $CWD"
+      fi
       PREOPEN $sysstate $TMPDIR/sim_callbacks.$$.c
     else
       echo "WARNING: No sysstate directory exists for $BNAME"

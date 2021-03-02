@@ -144,6 +144,7 @@ class FILE_STATE;
 
 LOCALTYPE typedef std::list<READ_STATE *> READ_STATE_LIST;
 LOCALTYPE typedef std::set<string> STRING_SET;
+LOCALTYPE typedef std::set<UINT32> POS_SET;
 union thread_data_t
 {
  struct
@@ -188,8 +189,8 @@ class READ_STATE
  private:   
     ADDRINT _syscall_pc;
     UINT32 _count_act;
-    UINT32 _file_pos;
  public:   
+    UINT32 _file_pos;
     UINT32 _count_req;
     string _fname;
     ADDRINT  _buf_addr;
@@ -263,6 +264,7 @@ class READ_STATE
           ASSERTX(offset_ret != -1);
         }
       } 
+      //cerr << "\t filepos : "<< dec << _file_pos << " wcount " << dec << wcount << endl;
       return wcount;
     }
 };
@@ -450,6 +452,23 @@ class SYSSTATE_PRODUCER
         }
       }
       return retval;
+    }
+
+    BOOL IsPossibleDirname(const char * pathname)
+    {
+      STRING_SET :: iterator fit;
+      for ( fit = _fname_set.begin();
+           fit != _fname_set.end(); ++fit)
+      {
+        const CHAR * fname = fit->c_str();
+        if (strcmp(pathname, fname) == 0 ) continue; // this is the same set entry
+        if (strstr(fname, pathname) == fname )
+        {
+          return TRUE; // pathname ('needle') exists at the beginning of 
+                       // fname ('haystack')
+        }
+      }
+      return FALSE;
     }
 
      static VOID checkReadList(ADDRINT memea_callback, UINT32 bytes,string *dis, VOID *v)
@@ -651,10 +670,12 @@ class SYSSTATE_PRODUCER
       for ( fit = p->_fname_set.begin();
            fit != p->_fname_set.end(); ++fit)
       {
-        const CHAR * basefname = basename(fit->c_str());
-        const CHAR * dirfname = dirname(fit->c_str());
+        const CHAR * fname = fit->c_str();
+        const CHAR * basefname = basename(fname);
+        const CHAR * dirfname = dirname(fname);
         string outdir_name;
-        cerr << "Processing file " << *fit << endl;
+        POS_SET dirty_pos_set;
+        cerr << "Processing file " << fname << endl;
         cerr << "basename : " << basefname << endl;
         cerr << "dirname : " << dirfname << endl;
         if(IsAbsolutePathname(dirfname))
@@ -672,6 +693,19 @@ class SYSSTATE_PRODUCER
           else
           {
             outdir_name = p->_out_state_workdirname + dirfname;
+          }
+        }
+        if(IsAbsolutePathname(fname))
+        {
+           //handling special case: e.g. "/lib" which was used with 'stat()'
+           // '/lib' is  a directory but we do not know that
+           // treat it as a directory if it appears as a prefix of some other
+           // filename
+          if(p->IsPossibleDirname(fname))
+          {
+            cerr << "Skipping processing " << fname  << " a possible directory " << endl;
+            cerr << "========================\n";
+            continue;
           }
         }
         FILE_STATE::CreatePath(outdir_name);
@@ -698,7 +732,22 @@ class SYSSTATE_PRODUCER
            //if((*rit)->_fname==*(fit)) (*rit)->PrintReadState();
            if((*rit)->_fname == *fit)
            {
-              write_count += (*rit)->OutputReadState(dummy_fileFD);
+              UINT32 this_write_count = (*rit)->OutputReadState(dummy_fileFD);
+              if(this_write_count)
+              {
+                dirty_pos_set.insert((*rit)->_file_pos);
+              }
+              else
+              {
+                if(!dirty_pos_set.count((*rit)->_file_pos))
+                {
+                  // this _file_pos has not had a 'real' write yet, add an empty one
+                  UINT32 count_written = write(dummy_fileFD, (*rit)->_shadow_buf, (*rit)->_count_req);
+                  //cerr << " writing an empty buffer at pos " << dec << (*rit)->_file_pos << endl;
+                  ASSERTX(count_written == (*rit)->_count_req);
+                }
+              }
+              write_count += this_write_count;
               if((*rit)->_count_req > max_count_req) 
               {
                 max_count_req = (*rit)->_count_req;
@@ -871,6 +920,7 @@ class SYSSTATE_PRODUCER
                 fs->_fname = cleanfname; 
                 fs->_current_file_pos = 0;
               }
+              if(p->_verbose) cerr << " Producer:SysAfter SYS_open inserting " << cleanfname << endl; 
               p->_fname_set.insert(cleanfname);
             }
           PIN_RWMutexUnlock(&(p->_producerMutex));
@@ -916,6 +966,7 @@ class SYSSTATE_PRODUCER
                 fs->_fname = cleanfname; 
                 fs->_current_file_pos = 0;
               }
+              if(p->_verbose) cerr << " Producer:SysAfter SYS_openat inserting " << cleanfname << endl; 
               p->_fname_set.insert(cleanfname);
             }
           PIN_RWMutexUnlock(&(p->_producerMutex));
@@ -944,6 +995,7 @@ class SYSSTATE_PRODUCER
                 fname = dummy_cwd_value + fname;
               }
               string cleanfname = FILE_STATE::CleanPathName(fname);
+              if(p->_verbose) cerr << " Producer:SysAfter SYS_stat inserting " << cleanfname << endl; 
               p->_fname_set.insert(cleanfname);
               // Not adding to _fd2fstate[] because there is no 'fd' here
             }
@@ -1084,6 +1136,7 @@ class SYSSTATE_PRODUCER
             if(p->_verbose){
                 cerr << "Adding MMAP info as ReadState to  new FD " << fd << endl;
             }
+            if(p->_verbose) cerr << " Producer:SysAfter SYS_mmap inserting " << fname << endl; 
             p->_fname_set.insert(fname);
             p->_fd2fstate[fd] = fs;
           }
@@ -1145,6 +1198,7 @@ class SYSSTATE_PRODUCER
                 cerr << "Adding ReadState to  new FD " 
                   << fd << " " << fs->_fname << endl;
             }
+            if(p->_verbose) cerr << " Producer:SysAfter SYS_read inserting " << fname << endl; 
             p->_fname_set.insert(fname);
             p->_fd2fstate[fd] = fs;
           }
@@ -1174,6 +1228,7 @@ class SYSSTATE_PRODUCER
               cerr << "Write  to  existing FD " 
                   << fd << " " << fs->_fname << endl;
              } 
+            p->_fname_set.insert(fs->_fname);
           }
           else
           {
@@ -1187,6 +1242,7 @@ class SYSSTATE_PRODUCER
                   << fd << " " << fs->_fname << endl;
             }
             p->_fd2fstate[fd] = fs;
+            p->_fname_set.insert(fname);
           }
         PIN_RWMutexUnlock(&(p->_producerMutex));
         break;
@@ -1340,7 +1396,7 @@ class SYSSTATE_CONSUMER
             string fdstr= origfname.substr(origfname.find('_')+1);
             INT32 origFd = atoi(fdstr.c_str());
             INT32 currentFd = -1;
-            string sysfname = p->_in_state_workdirname + origfname;
+            string sysfname = p->_in_state_workdirname + "/" + origfname;
             cerr << " Pre-opened FD file " << sysfname << endl;
             //currentFd = open(sysfname.c_str(), O_RDONLY|O_WRONLY);
             currentFd = open(sysfname.c_str(), O_RDWR, S_IRWXU);

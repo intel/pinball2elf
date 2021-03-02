@@ -4,7 +4,7 @@ export PINBALL2ELFLOC=`dirname $myloc`/src
 export PINBALL2ELF=$PINBALL2ELFLOC"/pinball2elf"
 export INST=`dirname $myloc`/instrumentation
 TMPDIR=/tmp
-CWD=""
+export CWD=""
 if [ ! -z $P2E_TEMP ];
 then
    TMPDIR=$P2E_TEMP
