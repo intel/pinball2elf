@@ -75,11 +75,16 @@ PREOPEN()
 #pinball/perlbench-r.3_58573_globalr5_warmupendPC0x0004c7c6b_warmupendPCCount138041_warmuplength800000017_endPC0x0004d1d7c_endPCCount96403_length200000010_multiplier7-000_005_0-05600.0.sysstate/FD_0
       f=`basename $p` 
       fd=`echo $f | awk -F"_" '{print $2}'`
-      echo "  myfd = lte_syscall(__NR_open, (uint64_t)\"$f\", O_RDWR,S_IRWXU,0,0,0);" >> $cfile
-      echo "    if( myfd < 0 )" >> $cfile
-      echo "     lte_write(1, "\"could not pre-open $f \\\n\"", sizeof("\"could not pre-open $f \\\n\"")-1);" >> $cfile
-      echo "    else" >> $cfile
-      echo "     lte_syscall(__NR_dup2, myfd, $fd,0,0,0,0);" >> $cfile
+      if [ $fd -eq 2 ];
+      then
+         echo "Skipping 'stderr' re-direction with $f"
+      else
+        echo "  myfd = lte_syscall(__NR_open, (uint64_t)\"$f\", O_RDWR,S_IRWXU,0,0,0);" >> $cfile
+        echo "    if( myfd < 0 )" >> $cfile
+        echo "     lte_write(1, "\"could not pre-open $f \\\n\"", sizeof("\"could not pre-open $f \\\n\"")-1);" >> $cfile
+        echo "    else" >> $cfile
+        echo "     lte_syscall(__NR_dup2, myfd, $fd,0,0,0,0);" >> $cfile
+      fi
     done
   fi
   echo "}" >> $cfile

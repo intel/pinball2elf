@@ -1384,6 +1384,7 @@ class SYSSTATE_CONSUMER
           cerr << "set _cwd_path " << p->_cwd_path << endl;
           p->_in_state_workdirname  += p->_cwd_path;
           close(cwdFd);
+          indir = opendir(p->_in_state_workdirname.c_str());
         }
         while((ent = readdir(indir)) != NULL)
         {
@@ -1399,15 +1400,23 @@ class SYSSTATE_CONSUMER
             string sysfname = p->_in_state_workdirname + "/" + origfname;
             cerr << " Pre-opened FD file " << sysfname << endl;
             //currentFd = open(sysfname.c_str(), O_RDONLY|O_WRONLY);
-            currentFd = open(sysfname.c_str(), O_RDWR, S_IRWXU);
-            if (currentFd == -1 ) {
-              cerr << "Error: Unable to open file; " << sysfname << endl;
+            if(origFd == 2)
+            {
+              cerr << "Skipping 'stderr' re-direction with  " << sysfname << endl;
               continue;
             }
-            cerr << "                currentFd " << currentFd << endl;
-            if (currentFd != origFd) {
-              INT32 retFd = dup2(currentFd, origFd);
-              cerr << "                dup2():retFd " << retFd << endl;
+            else
+            {
+              currentFd = open(sysfname.c_str(), O_RDWR, S_IRWXU);
+              if (currentFd == -1 ) {
+                cerr << "Error: Unable to open file; " << sysfname << endl;
+                continue;
+              }
+              cerr << "                currentFd " << currentFd << endl;
+              if (currentFd != origFd) {
+                INT32 retFd = dup2(currentFd, origFd);
+                cerr << "                dup2():retFd " << retFd << endl;
+              }
             }
           }
          }
