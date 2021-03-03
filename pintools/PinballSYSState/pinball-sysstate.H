@@ -128,6 +128,9 @@ END_LEGAL */
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
 #include <limits.h> // for PATH_MAX definition
 #include <fcntl.h> // for  AT_FDCWD
 #include "pin.H"
@@ -145,6 +148,7 @@ class FILE_STATE;
 LOCALTYPE typedef std::list<READ_STATE *> READ_STATE_LIST;
 LOCALTYPE typedef std::set<string> STRING_SET;
 LOCALTYPE typedef std::set<UINT32> POS_SET;
+
 union thread_data_t
 {
  struct
@@ -1305,6 +1309,8 @@ class SYSSTATE_CONSUMER
       _in_state_rootdirname = statedirname;
       _in_state_workdirname = statedirname;
       _verbose = verbose;
+      _first_brk_addr = 0;
+      _first_brk_seen = false;
       bzero(_cwd_path, CWDMAX);
       cerr << "Consumer " << statedirname << endl;
       PIN_AddSyscallEntryFunction(syscallEntryCallbackConsumer, this);
@@ -1363,6 +1369,23 @@ class SYSSTATE_CONSUMER
     }
 
   private:
+
+    static VOID ProcessBRKvalues(const char * fname, VOID *v)
+    {
+      ADDRINT first_brk_addr = 0;
+      ADDRINT last_brk_addr = 0;
+      SYSSTATE_CONSUMER *p = (SYSSTATE_CONSUMER *) v;
+      fstream brkfile;
+      brkfile.open(fname, fstream::in); 
+      
+      brkfile >> hex >> first_brk_addr;
+      brkfile >> hex >> last_brk_addr;
+      cerr << "BRK.log first_brk_addr 0x" << hex << first_brk_addr << endl;
+      cerr << "BRK.log last_brk_addr 0x" << hex << last_brk_addr << endl;
+      p->_first_brk_addr = first_brk_addr;
+      p->_first_brk_seen = FALSE;
+    }
+
     static VOID StartConsumer(VOID *v)
     {
       SYSSTATE_CONSUMER *p = (SYSSTATE_CONSUMER *) v;
@@ -1371,6 +1394,13 @@ class SYSSTATE_CONSUMER
       indir = opendir(p->_in_state_rootdirname.c_str());
       if (indir != NULL)
       {
+        string brkfname = p->_in_state_rootdirname  + "/" + "BRK.log";
+        INT32 brkFd = open(brkfname.c_str(), O_RDWR, S_IRWXU);
+        if (brkFd != -1 ) {
+          cerr << "Found " << brkfname << endl;
+          close(brkFd);
+          ProcessBRKvalues(brkfname.c_str(),v);
+        }
         string cwdfname = p->_in_state_rootdirname  + "/" + "CWD.log";
         cerr << " Opening  " << cwdfname << endl;
         INT32 cwdFd = open(cwdfname.c_str(), O_RDWR, S_IRWXU);
@@ -1707,17 +1737,31 @@ class SYSSTATE_CONSUMER
      case SYS_brk:
      {
         PIN_RWMutexReadLock(&(p->_consumerMutex));
-        if(tdata->_data.arg0 != 0)
-          PIN_SetContextReg(ctxt, REG_GAX, tdata->_data.arg0);
-   if(p->_verbose)
-   {
-        cerr << " Consumer:SysAfter SYS_brk threadid " << threadid; 
-        cerr << " num 0x" << hex <<  tdata->_data.sys_num
+        if(p->_verbose)
+        {
+            cerr << " Consumer:SysAfter SYS_brk threadid " << threadid; 
+            cerr << " num 0x" << hex <<  tdata->_data.sys_num
             << hex << " ip 0x" << tdata->_data.sys_ip
             << " arg0 0x" << hex << tdata->_data.arg0
-            << " native retval 0x" << hex << syscall_retval  
-            << " forced retval 0x" << hex << tdata->_data.arg0  << endl;
-   }
+            << " native retval 0x" << hex << syscall_retval  << endl;
+        }
+        if(!p->_first_brk_seen && (p->_first_brk_addr != 0))
+        {
+          PIN_SetContextReg(ctxt, REG_GAX, p->_first_brk_addr);
+          p->_first_brk_seen = TRUE;
+          if(p->_verbose)
+          {
+            cerr << "First SYS_brk: forced retval 0x" << hex << p->_first_brk_addr << endl;
+          }
+       }
+       else if(tdata->_data.arg0 != 0)
+       {
+          PIN_SetContextReg(ctxt, REG_GAX, tdata->_data.arg0);
+          if(p->_verbose)
+          {
+            cerr << "SYS_brk: forced retval 0x" << hex << tdata->_data.arg0 << endl;
+          }
+       }
         PIN_RWMutexUnlock(&(p->_consumerMutex));
         break;
        }
@@ -1733,6 +1777,8 @@ class SYSSTATE_CONSUMER
   string _in_state_workdirname;
   char _cwd_path[CWDMAX];
   bool _verbose;
+  ADDRINT _first_brk_addr;
+  bool _first_brk_seen;
 };
 
 class SYSSTATE
