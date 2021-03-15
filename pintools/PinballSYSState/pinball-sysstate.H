@@ -1893,7 +1893,8 @@ class SYSSTATE
          return 1;
         }
       }
-      return 0;
+      // no SYSSTATE use happening
+      return 1;
     }
     private:
       SYSSTATE_PRODUCER *_producer;
