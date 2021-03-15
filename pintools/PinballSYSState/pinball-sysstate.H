@@ -1824,7 +1824,7 @@ class SYSSTATE
         if(!_sysstateOutKnob.Value().empty())
           cerr << "Replayer inactive: ignoring '-sysstate:out " <<  _sysstateOutKnob.Value() 
             << "'" << endl;
-         return 0;
+         return 1;
       }
 
       // Skip the relogging case for now
@@ -1836,7 +1836,7 @@ class SYSSTATE
         if(!_sysstateOutKnob.Value().empty())
           cerr << "Logger active: ignoring '-sysstate:out " 
            <<  _sysstateOutKnob.Value() << "'" << endl;
-        return 0;
+        return 1;
       }
 
       KNOB_BASE * knobinjection = KNOB_BASE::FindKnob("replay:injection");
@@ -1854,16 +1854,6 @@ class SYSSTATE
           return 0;
         }
         else {
-#if 0
-          //OS_FILE_ATTRIBUTES attr;
-          //if(OS_GetFileAttributes(_sysstateInKnob.Value().c_str(), &attr) !=  OS_RETURN_CODE_NO_ERROR)
-          struct stat statbuf;
-          if(stat(_sysstateInKnob.Value().c_str(), &statbuf) == -1)
-          {
-            cerr << "Missing sysstate directory" <<  _sysstateInKnob.Value() << endl;
-            ASSERTX(0);
-          }
-#endif
           if(access(_sysstateInKnob.Value().c_str(), F_OK) == -1)
           {
             cerr << "Missing sysstate directory" <<  _sysstateInKnob.Value() << endl;
@@ -1893,6 +1883,7 @@ class SYSSTATE
          return 1;
         }
       }
+    
       // no SYSSTATE use happening
       return 1;
     }
