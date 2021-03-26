@@ -146,6 +146,7 @@ class READ_STATE;
 class FILE_STATE;
 
 LOCALTYPE typedef std::list<READ_STATE *> READ_STATE_LIST;
+LOCALTYPE typedef std::list<ADDRINT> MMAP_ADDR_LIST;
 LOCALTYPE typedef std::set<string> STRING_SET;
 LOCALTYPE typedef std::set<UINT32> POS_SET;
 
@@ -595,6 +596,36 @@ class SYSSTATE_PRODUCER
       }
     }
 
+    static VOID OutputMMAPvalues(string out_dirname, VOID *v)
+    {
+      SYSSTATE_PRODUCER *p = (SYSSTATE_PRODUCER *) v;
+      string fname = out_dirname + "/MMAP.log";
+      INT32 fid;
+      mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+      fid = open(fname.c_str(),O_WRONLY|O_CREAT|O_TRUNC, mode);
+      if (fid == -1)
+      {
+        cerr << "Could not open output  file " <<
+          fname.c_str() << endl;
+        ASSERTX(0);
+      }
+      MMAP_ADDR_LIST :: iterator mit;
+      cerr << "OutputMMAPvalues(): " << endl;
+      for ( mit = p->_mmap_addr_list.begin();
+             mit != p->_mmap_addr_list.end(); ++mit)
+      {
+        ostringstream ss;
+        ss << "0x" << hex << *mit << "\n";
+        const char * outstr = ss.str().c_str();
+        if (write(fid, outstr, strlen(outstr)) < 0 )
+        {
+          cerr << "Could not write to  file " <<
+            fname.c_str() << endl;
+          ASSERTX(0);
+        }
+      }
+    }
+
     static VOID OutputCWD(string out_dirname, VOID *v)
     {
       SYSSTATE_PRODUCER *p = (SYSSTATE_PRODUCER *) v;
@@ -669,6 +700,10 @@ class SYSSTATE_PRODUCER
       if(p->_first_brk_retval != 0)
       {
         OutputBRKvalues(p->_out_state_rootdirname, v);
+      }
+      if(!p->_mmap_addr_list.empty())
+      {
+        OutputMMAPvalues(p->_out_state_rootdirname, v);
       }
       STRING_SET :: iterator fit;
       for ( fit = p->_fname_set.begin();
@@ -1145,6 +1180,11 @@ class SYSSTATE_PRODUCER
             p->_fd2fstate[fd] = fs;
           }
         }
+        p->_mmap_addr_list.push_back(syscall_retval);
+        if(p->_verbose)
+        {
+          cerr << "MMAP: pushed value 0x" << hex << syscall_retval << endl;
+        }
         PIN_RWMutexUnlock(&(p->_producerMutex));
         break;
       }
@@ -1291,6 +1331,7 @@ class SYSSTATE_PRODUCER
   FILE_STATE * _fd2fstate[MAXFD];
   READ_STATE_LIST _read_state_list;
   READ_STATE_LIST _cwd_state_list;
+  MMAP_ADDR_LIST _mmap_addr_list;
   string _out_state_rootdirname;
   string _out_state_workdirname;
   char * _cwd_buf_addr;
@@ -1386,6 +1427,22 @@ class SYSSTATE_CONSUMER
       p->_first_brk_seen = FALSE;
     }
 
+    static VOID ProcessMMAPvalues(const char * fname, VOID *v)
+    {
+      ADDRINT mmap_value = 0;
+      SYSSTATE_CONSUMER *p = (SYSSTATE_CONSUMER *) v;
+      fstream mmapfile;
+      mmapfile.open(fname, fstream::in); 
+      
+      while(!mmapfile.eof())
+      {
+        mmapfile >> hex >> mmap_value;
+        p->_mmap_addr_list.push_back(mmap_value);
+        //cerr << "MMAP: read value 0x" << hex << mmap_value << endl;
+      }
+    }
+
+
     static VOID StartConsumer(VOID *v)
     {
       SYSSTATE_CONSUMER *p = (SYSSTATE_CONSUMER *) v;
@@ -1400,6 +1457,13 @@ class SYSSTATE_CONSUMER
           cerr << "Found " << brkfname << endl;
           close(brkFd);
           ProcessBRKvalues(brkfname.c_str(),v);
+        }
+        string mmapfname = p->_in_state_rootdirname  + "/" + "MMAP.log";
+        INT32 mmapFd = open(mmapfname.c_str(), O_RDWR, S_IRWXU);
+        if (mmapFd != -1 ) {
+          cerr << "Found " << mmapfname << endl;
+          close(mmapFd);
+          ProcessMMAPvalues(mmapfname.c_str(),v);
         }
         string cwdfname = p->_in_state_rootdirname  + "/" + "CWD.log";
         cerr << " Opening  " << cwdfname << endl;
@@ -1765,6 +1829,30 @@ class SYSSTATE_CONSUMER
         PIN_RWMutexUnlock(&(p->_consumerMutex));
         break;
        }
+     case SYS_mmap:
+     {
+        PIN_RWMutexReadLock(&(p->_consumerMutex));
+        if(p->_verbose)
+        {
+            cerr << " Consumer:SysAfter SYS_mmap threadid " << threadid; 
+            cerr << " num 0x" << hex <<  tdata->_data.sys_num
+            << hex << " ip 0x" << tdata->_data.sys_ip
+            << " native retval 0x" << hex << syscall_retval  << endl;
+        }
+        if(!p->_mmap_addr_list.empty())
+        {
+          ADDRINT new_retval =  p->_mmap_addr_list.front();
+          p->_mmap_addr_list.pop_front();
+          PIN_SetContextReg(ctxt, REG_GAX, new_retval);
+          if(p->_verbose)
+          {
+            cerr << "SYS_mmap: forced retval 0x" << hex << new_retval << endl;
+          }
+       }
+        PIN_RWMutexUnlock(&(p->_consumerMutex));
+        break;
+       }
+
      }
      tdata->_data.sys_ip = 0;
   }
@@ -1779,6 +1867,7 @@ class SYSSTATE_CONSUMER
   bool _verbose;
   ADDRINT _first_brk_addr;
   bool _first_brk_seen;
+  MMAP_ADDR_LIST _mmap_addr_list;
 };
 
 class SYSSTATE
