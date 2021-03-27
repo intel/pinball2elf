@@ -596,6 +596,30 @@ class SYSSTATE_PRODUCER
       }
     }
 
+    static VOID OutputPIDvalue(string out_dirname, VOID *v)
+    {
+      SYSSTATE_PRODUCER *p = (SYSSTATE_PRODUCER *) v;
+      string fname = out_dirname + "/PID.log";
+      INT32 fid;
+      mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+      fid = open(fname.c_str(),O_WRONLY|O_CREAT|O_TRUNC, mode);
+      if (fid == -1)
+      {
+        cerr << "Could not open output  file " <<
+          fname.c_str() << endl;
+        ASSERTX(0);
+      }
+      ostringstream ss;
+      ss << "0x" << hex << p->_pid << "\n";
+      const char * outstr = ss.str().c_str();
+      if (write(fid, outstr, strlen(outstr)) < 0 )
+      {
+        cerr << "Could not write to  file " <<
+          fname.c_str() << endl;
+        ASSERTX(0);
+      }
+    }
+
     static VOID OutputMMAPvalues(string out_dirname, VOID *v)
     {
       SYSSTATE_PRODUCER *p = (SYSSTATE_PRODUCER *) v;
@@ -700,6 +724,10 @@ class SYSSTATE_PRODUCER
       if(p->_first_brk_retval != 0)
       {
         OutputBRKvalues(p->_out_state_rootdirname, v);
+      }
+      if(p->_pid != 0)
+      {
+        OutputPIDvalue(p->_out_state_rootdirname, v);
       }
       if(!p->_mmap_addr_list.empty())
       {
@@ -1088,8 +1116,15 @@ class SYSSTATE_PRODUCER
         }
         ASSERT(fd < MAXFD, "file descriptor too big.\n");
         FILE_STATE * fs =  p->_fd2fstate[fd];
-        ASSERT(fs, "close() for non-existing file_state.\n");
-        p->_fd2fstate[fd] = NULL;
+        if(fs)
+        {
+          p->_fd2fstate[fd] = NULL;
+        }
+        else
+        {
+            //close() for non-existing file_state
+            //do nothing
+        }
         PIN_RWMutexUnlock(&(p->_producerMutex));
         break;
       }
@@ -1320,6 +1355,28 @@ class SYSSTATE_PRODUCER
         PIN_RWMutexUnlock(&(p->_producerMutex));
         break;
        }
+      case SYS_getpid:
+      {
+        PIN_RWMutexReadLock(&(p->_producerMutex));
+        if(tdata->_data.arg0 == 0)
+        {
+          cerr << " SYS_getpid(0) return value " << hex << syscall_retval << endl;
+        }
+        if(p->_pid == 0)
+        {
+          p->_pid = syscall_retval;
+        }
+   if(p->_verbose)
+   {
+        cerr << " Producer:SysAfter SYS_getpid threadid " << threadid; 
+        cerr << " num 0x" << hex <<  tdata->_data.sys_num
+            << hex << " ip 0x" << tdata->_data.sys_ip
+            << " retval 0x" << hex << syscall_retval  << endl;
+   }
+        PIN_RWMutexUnlock(&(p->_producerMutex));
+        break;
+       }
+
      }
      tdata->_data.sys_ip = 0;
   }
@@ -1338,6 +1395,7 @@ class SYSSTATE_PRODUCER
   string _cwd_value;
   ADDRINT _first_brk_retval;
   ADDRINT _last_brk_retval;
+  ADDRINT _pid;
   bool _verbose;
 };
 
@@ -1351,6 +1409,7 @@ class SYSSTATE_CONSUMER
       _in_state_workdirname = statedirname;
       _verbose = verbose;
       _first_brk_addr = 0;
+      _pid = 0;
       _first_brk_seen = false;
       bzero(_cwd_path, CWDMAX);
       cerr << "Consumer " << statedirname << endl;
@@ -1427,6 +1486,18 @@ class SYSSTATE_CONSUMER
       p->_first_brk_seen = FALSE;
     }
 
+    static VOID ProcessPIDvalues(const char * fname, VOID *v)
+    {
+      ADDRINT pid = 0;
+      SYSSTATE_CONSUMER *p = (SYSSTATE_CONSUMER *) v;
+      fstream pidfile;
+      pidfile.open(fname, fstream::in); 
+      
+      pidfile >> hex >> pid;
+      cerr << "PID.log pid 0x" << hex << pid << endl;
+      p->_pid = pid;
+    }
+
     static VOID ProcessMMAPvalues(const char * fname, VOID *v)
     {
       ADDRINT mmap_value = 0;
@@ -1458,6 +1529,14 @@ class SYSSTATE_CONSUMER
           close(brkFd);
           ProcessBRKvalues(brkfname.c_str(),v);
         }
+        string pidfname = p->_in_state_rootdirname  + "/" + "PID.log";
+        INT32 pidFd = open(pidfname.c_str(), O_RDWR, S_IRWXU);
+        if (pidFd != -1 ) {
+          cerr << "Found " << pidfname << endl;
+          close(pidFd);
+          ProcessPIDvalues(pidfname.c_str(),v);
+        }
+
         string mmapfname = p->_in_state_rootdirname  + "/" + "MMAP.log";
         INT32 mmapFd = open(mmapfname.c_str(), O_RDWR, S_IRWXU);
         if (mmapFd != -1 ) {
@@ -1828,7 +1907,29 @@ class SYSSTATE_CONSUMER
        }
         PIN_RWMutexUnlock(&(p->_consumerMutex));
         break;
-       }
+     }
+     case SYS_getpid:
+     {
+        PIN_RWMutexReadLock(&(p->_consumerMutex));
+        if(p->_verbose)
+        {
+            cerr << " Consumer:SysAfter SYS_getpid threadid " << threadid; 
+            cerr << " num 0x" << hex <<  tdata->_data.sys_num
+            << hex << " ip 0x" << tdata->_data.sys_ip
+            << " native retval 0x" << hex << syscall_retval  << endl;
+        }
+        if(p->_pid != 0)
+        {
+          PIN_SetContextReg(ctxt, REG_GAX, p->_pid);
+          if(p->_verbose)
+          {
+            cerr << "SYS_getpid: forced retval 0x" << hex << p->_pid << endl;
+          }
+        }
+        PIN_RWMutexUnlock(&(p->_consumerMutex));
+        break;
+     }
+
      case SYS_mmap:
      {
         PIN_RWMutexReadLock(&(p->_consumerMutex));
@@ -1866,6 +1967,7 @@ class SYSSTATE_CONSUMER
   char _cwd_path[CWDMAX];
   bool _verbose;
   ADDRINT _first_brk_addr;
+  ADDRINT _pid;
   bool _first_brk_seen;
   MMAP_ADDR_LIST _mmap_addr_list;
 };
