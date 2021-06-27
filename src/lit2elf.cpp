@@ -919,7 +919,7 @@ int main(int argc, char** argv)
          {
             LTE_ASSERT(sec2);
          }
-         symtab->push_back(rela_text->get_sh_name(), 0, 0, ELF_ST_INFO(elf->get_e_class(), STB_LOCAL, STT_SECTION), 0, rela_text->get_index());
+         symtab->push_back(rela_text->get_sh_name(), 0, 0, ELF_ST_INFO(elf->get_e_class(), STB_GLOBAL, STT_SECTION), 0, rela_text->get_index());
       }
       else
       {

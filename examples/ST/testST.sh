@@ -17,21 +17,21 @@ else
 fi
 pinball=pinball.st/log_0
 pbname=`basename $pinball`
-if test "$( find . -name "$pbname.elfie" -print -quit)"
+if test "$( find . -name "$pbname.basic.elfie" -print -quit)"
 then
-    elfie=`find . -name "$pbname.elfie"`
+    elfie=`find . -name "$pbname.basic.elfie"`
     echo "  Deleting old elfie: $elfie" 
     rm -f $elfie
 fi
 
 echo "  Running $BASICSCRIPT $pinball" 
 $BASICSCRIPT $pinball > /dev/null 2>&1
-if ! test "$( find . -name "$pbname.elfie" -print -quit)"
+if ! test "$( find . -name "$pbname.basic.elfie" -print -quit)"
 then
     echo "**Failed command: '$BASICSCRIPT $pinball'"
     exit
 fi
-elfie=`find . -name "$pbname.elfie"`
+elfie=`find . -name "$pbname.basic.elfie"`
 echo "  Running $elfie"
 $elfie
 echo "---------------------"
