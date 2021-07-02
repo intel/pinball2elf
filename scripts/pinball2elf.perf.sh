@@ -97,11 +97,6 @@ SET_ROICOUNTS()
   then
     return
   fi
-  finiseen=`grep -c "Fini"  $pinball.event_icount.$tid.txt`
-  if [ $finiseen -eq 0 ];
-  then
-    return
-  fi
   endseen=`grep -c "Sim-End"  $pinball.event_icount.$tid.txt`
   if [ $endseen -gt 0 ]; # Sim-End exists
   then

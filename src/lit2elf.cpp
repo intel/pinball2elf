@@ -601,7 +601,7 @@ static int litelfLink(unsigned char e_class, const char* foname, const char* fsn
       {    
          for(int i = 0; argv[i]; ++i) 
             std::cout<<argv[i]<<' ';
-         std::cout<<'\n';
+         std::cout<<'\n' << std::flush;
       }    
 
       execv(argv[0], const_cast<char* const*>(&argv[0]));
@@ -830,6 +830,14 @@ int main(int argc, char** argv)
    litelfCreateCommentSection(*elf, *symtab);
 
    relatab = elf->create_relatab();
+   elf_t::section* rela_text = elf->create_section(RelaTextSegName, SHT_RELA, 0);
+   if(rela_text)
+   {
+      // not using arg0==rela_text->get_sh_name() as it results in a corrupt 
+      // symbol table. 
+      // Other LTT_SECTION symbols created with first argument 0 as well.
+      symtab->push_back(0, 0, 0, ELF_ST_INFO(elf->get_e_class(), STB_LOCAL, STT_SECTION), 0, rela_text->get_index());
+   }
 
    if(!get_config().no_startup_code())
    {
@@ -896,7 +904,6 @@ int main(int argc, char** argv)
    {
       LTE_ERRAX(elf->get_e_class() != ELFCLASS64, "callbacks are not supported for 32bit pinballs yet");
 
-      elf_t::section* rela_text = elf->create_section(RelaTextSegName, SHT_RELA, 0);
       if(rela_text)
       {
          rela_text->set_data(relatab);
@@ -919,7 +926,6 @@ int main(int argc, char** argv)
          {
             LTE_ASSERT(sec2);
          }
-         symtab->push_back(rela_text->get_sh_name(), 0, 0, ELF_ST_INFO(elf->get_e_class(), STB_GLOBAL, STT_SECTION), 0, rela_text->get_index());
       }
       else
       {
@@ -979,7 +985,7 @@ int main(int argc, char** argv)
             p2e_temp = nullptr;
          }    
          mktemp_template tmp("p2e-elfie.XXXXXX", p2e_temp);
-         mktemp_tempfile tmpfiles[3];
+         mktemp_tempfile tmpfiles[4];
 
          // During linking of pinball object file with other obect files and libraries ld gathers all the .text/.data
          // segments together and resultant segments could not fit into the range specifed in script file. To work such
@@ -998,23 +1004,26 @@ int main(int argc, char** argv)
          LTE_ERRAX(!ftmpname, "can't create temporary file");
          litelfCreateCbkCallStub(ftmpname, elf->get_e_class(), entry);
 
+         const char* ftmpname2 = tmpfiles[2].create(tmp);
+         LTE_ERRAX(!ftmpname2, "can't create temporary file");
+
          if(litelfLink(elf->get_e_class(), fexename, NULL, ftmpname, get_config().get_nonopt_argv(), get_config().get_nonopt_argc(), 0))
          {
             litelfLinkError(tmpfiles, LTE_ARRAY_SIZE(tmpfiles));
          }
 
          elf_t* elftmp = elf_t::create(fexename, true);
-         fldscript = tmpfiles[2].create(tmp);
+         fldscript = tmpfiles[3].create(tmp);
          LTE_ERRAX(!fldscript, "can't create temporary file");
          litelfCreateLdScript(fldscript, elf, elftmp);
          delete elftmp;
 
-         if(litelfLink(elf->get_e_class(), ftmpname, fldscript, fobjname, get_config().get_nonopt_argv(), get_config().get_nonopt_argc(), elf->get_e_entry()))
+         if(litelfLink(elf->get_e_class(), ftmpname2, fldscript, fobjname, get_config().get_nonopt_argv(), get_config().get_nonopt_argc(), elf->get_e_entry()))
          {
             litelfLinkError(tmpfiles, LTE_ARRAY_SIZE(tmpfiles));
          }
 
-         litelfFixElfieEntry(fexename, ftmpname, entry_va, entry_data_va, remap_va);
+         litelfFixElfieEntry(fexename, ftmpname2, entry_va, entry_data_va, remap_va);
       }
       else
       {
