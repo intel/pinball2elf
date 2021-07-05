@@ -964,19 +964,28 @@ entry_point64_t::entry_point64_t(lte_uint32_t threads_num)
 
    ((entry64_t*)m_entry)->threads_num = threads_num;
 
-   for(lte_uint32_t i = 0; i < sizeof(entry_point64_symtab)/sizeof(*entry_point64_symtab); ++i)
-   {
-      m_code_symbols.push_back(entry_point64_symtab[i]);
-      m_code_symbols.back().name = strdup(m_code_symbols.back().name);
-   }
-
    char buffer[256];
+   // Do Local object ("*.rip")insertion first followed by Global func symbols.
    for(lte_uint32_t i = 0; i < threads_num; ++i)
    {
-      //int len;
+      int len;
       sym s;
 
-      //len = 
+      len = sprintf(buffer, s_tst, i);
+      strcpy(buffer + len, ".rip");
+      s.name = strdup(buffer);
+      s.offs = E64_ITEM_OFFS(tst[i].ip);
+      s.size = E64_ITEM_SIZE(tst[i].ip);
+      s.info = E64_LOBJECT;
+      s.rela = NULL;
+      m_code_symbols.push_back(s);
+   }
+
+
+   for(lte_uint32_t i = 0; i < threads_num; ++i)
+   {
+      sym s;
+
       sprintf(buffer, s_tst, i);
       s.name = strdup(buffer);
       s.offs = E64_ITEM_OFFS(tst[i]);
@@ -984,18 +993,14 @@ entry_point64_t::entry_point64_t(lte_uint32_t threads_num)
       s.info = E64_GFUNC;
       s.rela = NULL;
       m_code_symbols.push_back(s);
-
-      // Why is an LOBJECT being added to m_code_symbols?
-      // This causes a local object appear in the middle of global objects
-      // in the resulting symbol table causing the loader to complain
-      //strcpy(buffer + len, ".rip");
-      //s.name = strdup(buffer);
-      //s.offs = E64_ITEM_OFFS(tst[i].ip);
-      //s.size = E64_ITEM_SIZE(tst[i].ip);
-      //s.info = E64_LOBJECT;
-      //s.rela = NULL;
-      //m_code_symbols.push_back(s);
    }
+
+   for(lte_uint32_t i = 0; i < sizeof(entry_point64_symtab)/sizeof(*entry_point64_symtab); ++i)
+   {
+      m_code_symbols.push_back(entry_point64_symtab[i]);
+      m_code_symbols.back().name = strdup(m_code_symbols.back().name);
+   }
+
 
    m_code_rela.resize(3);
    sym s;
