@@ -389,7 +389,7 @@ fi
     sscmark=0x111
     sscmark2=0x222
 set -x
-    time  $PINBALL2ELF --text-seg-flags WXA --data-seg-flags WXA --cbk-stack-size 1024000 --modify-ldt -u unlimited --roi-start ssc:$sscmark  --roi-start simics:$magicval --magic2 simics:$magicval2 -l 0x0 -i 1 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $DEST -p elfie_on_start -t elfie_on_thread_start -e elfie_on_exit $TMPDIR/perf_callbacks.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
+    time  $PINBALL2ELF --text-seg-flags XA --data-seg-flags WXA --cbk-stack-size 1024000 --modify-ldt -u unlimited --roi-start ssc:$sscmark  --roi-start simics:$magicval --magic2 simics:$magicval2 -l 0x0 -i 1 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $DEST -p elfie_on_start -t elfie_on_thread_start -e elfie_on_exit $TMPDIR/perf_callbacks.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
 set +x
     cp $TMPDIR/perf_callbacks.$$.c perf_callbacks.c
     rm $TMPDIR/perf_callbacks.$$.c $TMPDIR/perf_callbacks.$$.o

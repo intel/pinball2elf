@@ -169,7 +169,7 @@ fi
     fi
     SETENV $TMPDIR/basic_callbacks.$$.c
     gcc -g -I$PINBALL2ELFLOC/lib -c $TMPDIR/basic_callbacks.$$.c -o $TMPDIR/basic_callbacks.$$.o
-    time  $PINBALL2ELF --text-seg-flags WXA --data-seg-flags WXA --cbk-stack-size 102400 --modify-ldt -u unlimited --roi-start ssc:$sscmark  --roi-start simics:$magicval --magic2 simics:$magicval2 -l 0x0 -i 0 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $DEST -p elfie_on_start -t elfie_on_thread_start $TMPDIR/basic_callbacks.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
+    time  $PINBALL2ELF --text-seg-flags XA --data-seg-flags WXA --cbk-stack-size 102400 --modify-ldt -u unlimited --roi-start ssc:$sscmark  --roi-start simics:$magicval --magic2 simics:$magicval2 -l 0x0 -i 0 -d $tmpBASE.global.log -m $tmpBASE.text -r $tmpBASE.address -x $DEST -p elfie_on_start -t elfie_on_thread_start $TMPDIR/basic_callbacks.$$.o  $PINBALL2ELFLOC/lib/libperfle.a   $PINBALL2ELFLOC/lib/libcle.a  
     cp  $TMPDIR/basic_callbacks.$$.c basic_callbacks.c
     rm  $TMPDIR/basic_callbacks.$$.*
     if [ $compression -eq 1 ]; then

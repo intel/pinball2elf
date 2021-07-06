@@ -12,11 +12,7 @@ pinball2elf has been tested with the following OS/tool/hardware combinations:
 
 ### Known issues 
    
- 1. OS: Ubuntu 20.04, gcc: 9.3.0, g++: 9.3.0, GNU ld 2.34 
-
-      Loader Error: *.symtab local symbol at index 72 (>= sh_info of 70)*
-
- 2. OS: Ubuntu 16.04, gcc: 8.4.0, g++: 8.4.0, GNU ld 2.26.1
+ 1. OS: Ubuntu 16.04, gcc: 8.4.0, g++: 8.4.0, GNU ld 2.26.1
 
       Loader errors: *relocation truncated to fit: R_X86_64_32S against `data`*
 
