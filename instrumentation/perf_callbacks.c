@@ -385,22 +385,7 @@ void elfie_on_exit()
    int i,j;
    for(i = 0; i < lte_pe_get_num_threads(); ++i)
    {
-      if (i > FILECOUNT) continue;
-
-      for(j = 0; j <PERF_COUNT_HW_MAX  ; ++j)
-      {
-        if(hw_event_enabled[j])
-        {
-          lte_pe_disable(e_hw_perf[i][j]);
-        }
-    }
-    for(j = 0; j <PERF_COUNT_HW_MAX  ; ++j)
-    {
-      if(hw_event_enabled[j])
-      {
-        lte_pe_disable(e_hw_perf[i][j]);
-      }
-    }
+    if (i > FILECOUNT) continue;
     int my_out_fd = out_fd[i];
     lte_write(my_out_fd, "ROI end: TSC ", lte_strlen("ROI end: TSC ")-1); 
     lte_diprintfe(my_out_fd, ptscend, '\n');
