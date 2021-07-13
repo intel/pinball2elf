@@ -30,7 +30,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 END_LEGAL */
 
 #define MAXENVSIZE 99999
-#define MAXENVCOUNT 499
+#define MAXENVCOUNT 4999
 __lte_static int efd;
 __lte_static char elfie_environ[MAXENVSIZE+1];
 __lte_static char * environ_vars[MAXENVCOUNT+1];
