@@ -20,6 +20,31 @@ ERROR()
 }
 
 
+FATCHECK()
+{
+ pb=$1
+ glog=$pb.global.log
+ if [ ! -e $glog ];
+ then
+    echo "ERROR: *.global.log file not found for $pb" 
+    exit 1
+ fi
+ fatrec=`grep "fat: " $glog`
+ if [ -z "$fatrec" ]; 
+ then
+    echo "ERROR: 'fat: ' not found for $pb" 
+    exit 1
+ fi
+ isfat=`grep "fat: " $glog | awk '{print $NF}'`
+ if [ $isfat -eq 1 ];
+ then
+    echo "$pb WAS created with '-log:fat'" 
+ else
+    echo "ERROR: $pb was not created with '-log:fat'" 
+    exit 1
+ fi
+}
+
 SETENV()
 {
   cfile=$1
@@ -102,6 +127,7 @@ fi
     icount_threshold=1; #include threads with at least 1 instruction executed.
     compression=0
     echo $BASE
+    FATCHECK $BASE
     basedir=`dirname $BASE`
     basename=`basename $BASE`
     tmpBASE=$BASE
