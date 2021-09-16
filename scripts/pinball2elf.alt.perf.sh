@@ -245,8 +245,9 @@ fi
     basedir=`dirname $BASE`
     basename=`basename $BASE`
 # We are not counting threads with 0 icount
-    nthreads=`grep inscount $BASE"."*result | awk '{print $NF}' | grep -v -e "^0" | wc -l`
-    echo "nthreads $nthreads with non-zero icounts"
+    #nthreads=`grep inscount $BASE"."*result | awk '{print $NF}' | grep -v -e "^0" | wc -l`
+    #echo "nthreads $nthreads with non-zero icounts"
+    nthreads=1 # only tid0  exists at the beginning of wpb
 
 # ELFie tids numbering is  reverse of  pinplay tid numbering
 # pinplay_tid 0 --> ELFie tid (N-1) 
@@ -263,15 +264,10 @@ fi
     wicount_arr=()
     #nextetid=`echo "$nthreads-1" | bc`
     nextetid=0
-    for resultfile in `ls $pinball"."*result`
+    tid=0
+    for eventfile  in `ls $pinball"."event_icount.0.txt`
     do
-      rbasename=`basename $resultfile`
-      tid=`echo $rbasename | awk -F "." '{print $(NF-1)}'`
-      #ticount=`grep inscount $resultfile | awk '{print $NF}'`
-      #if [ $ticount -gt 0 ];
-      #then
          etid=$nextetid
-         #nextetid=`echo "$nextetid-1" | bc`
          nextetid=`echo "$nextetid+1" | bc`
          pcaddr_arr[$etid]=0
          wpcaddr_arr[$etid]=0
@@ -279,13 +275,7 @@ fi
          wpccount_arr[$etid]=0
          icount_arr[$etid]=0
          wicount_arr[$etid]=0 #No warmup
-         if [ -e $pinball.event_icount.$tid.txt ];
-         then
-          SET_ROICOUNTS $pinball $tid $etid
-         else
-          SET_ROICOUNTS_NOEVENTS $pinball $tid $etid
-         fi
-      #fi
+         SET_ROICOUNTS $pinball $tid $etid
     done
     let i=0
     pcaddrlist="pcaddr_arr[]={"
