@@ -263,7 +263,7 @@ fi
     wicount_arr=()
     #nextetid=`echo "$nthreads-1" | bc`
     nextetid=0
-    for resultfile in `ls $pinball"."*result`
+    for resultfile in `ls $pinball"."event_icount.*.txt`
     do
       rbasename=`basename $resultfile`
       tid=`echo $rbasename | awk -F "." '{print $(NF-1)}'`
