@@ -38,6 +38,10 @@ END_LEGAL */
 typedef void* lte_td_t;
 typedef void (*lte_pe_cbk_t)(lte_td_t, int, siginfo_t*, void*);
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 uint64_t lte_pe_get_num_threads();
 lte_td_t lte_pe_get_thread_desc(uint64_t tnum);
 
@@ -77,5 +81,9 @@ void lte_pe_disable(int fd);
 void lte_pe_enable(int fd);
 void lte_pe_reset(int fd);
 void lte_pe_close(int fd);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //LTE_PERF_H

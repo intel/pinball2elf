@@ -25,6 +25,9 @@ END_LEGAL */
 #include <sys/wait.h>
 #include <sys/mman.h>
 #include <linux/perf_event.h>
+#ifdef PINCRT
+#include "__sigset_t.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +46,18 @@ typedef sigset_t lte_sigset_t;
 # define __sigword(sig) (((sig) - 1) / (8 * sizeof (unsigned long int)))
 #endif
 
+
+#ifdef PINCRT
+#  define lte_sigaddset(set, signum) sigaddset(set, signum)
+#  define lte_sigdelset(set, signum) sigdelset(set, signum)
+#  define lte_sigismember(set, signum) sigismember(set, signum)
+
+#  define lte_sigemptyset(set) \
+     sigemptyset(set)
+
+#  define lte_sigfillset(set) \
+     sigemptyset(set)
+#else
 #ifndef  __sigemptyset
 #  define __sigemptyset(set) \
   (__extension__ ({ int __cnt = _SIGSET_NWORDS;             \
@@ -84,6 +99,7 @@ typedef sigset_t lte_sigset_t;
 #else
 #  error "__sigfillset is not defined"
 #endif
+#endif // ifdef PINCRT
 
 
 pid_t lte_getpid(void);

@@ -15,6 +15,9 @@ else
 CFLAGS=-O0 -g -fno-stack-protector
 endif
 CFLAGS+=-I. -mcmodel=large -static -fno-zero-initialized-in-bss -fno-stack-protector
+ifneq ($(PINCRT),)
+CFLAGS += -DPINCRT -I/usr/include/x86_64-linux-gnu/bits/types/
+endif
 
 
 LIBCLE=libcle.a
