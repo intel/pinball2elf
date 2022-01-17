@@ -1,0 +1,32 @@
+A generic region-of-interest monitoring utility based on Pin-probes
+It allows client tools to register callbacks on region-of-interests.
+Two types of regions are supported:
+PC + count:
+   Thread-0: give a callback after 'count' executions of PC.
+   Implemented using Pin-probes
+    start:RTN:count, start:PC:count
+    stop:RTN:count, stop:PC:count
+icount:
+   Thread-0: give a callback after 'count' instructions are executed
+   Implemented using the Linux system call perf_event_open()
+   with HW counter 'PERF_COUNT_HW_CPU_INSTRUCTIONS' set for an overflow 
+   callback after 'count' instructions
+    istart:count
+    istop:count
+A client tool can register a callback using RegisterHandler().
+See ROI_perf.cpp as an example client tool that uses probe_control.
+
+To build the default tool probe_control.so:
+ %setenv PIN_ROOT <path to your Pin kit>
+ %make clean; make
+
+Example:
+% echo "stop:exit:1" > probe.in
+% cat probe.in
+stop:exit:1
+
+% $PIN_ROOT/pin -t obj-intel64/probe_control.so -probecontrol:in probe.in -- /bin/ls
+...
+ exec_count 1
+stop event triggered @exit:1
+MyHandler called: stop
