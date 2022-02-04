@@ -1,0 +1,23 @@
+Tools to control process execution.
+==================================
+Author: Karthik Sankaranarayanan  (Intel labs).
+==========================================================================
+startpaused.sh :
+  usage: setsid ./startpaused.sh <file> -- <cmd> <args>
+  starts application paused and writes PID to <file>
+
+pstree-icount:
+usage: ./pstree-icount <pid> <us> <limit>
+stop a process tree after a given number of total instructions on core 0
+<pid>    :     pid of the root of a SIGSTOPPED pstree
+<us>     :     polling time period in microseconds
+<limit>  :     instruction count beyond which to stop (0 for run to completion)
+
+pstree-timedrun 
+usage: ./pstree-timedrun <pid> <us> <limit>
+stop a process tree after executing for a given number of micro-seconds
+<pid>    :     pid of the root of a SIGSTOPPED pstree
+<us>     :     polling time period in microseconds
+<limit>  :     no. of seconds after which to stop (0 for run to completion)
+----
+See HOWTO.criu for an example use of these tools for CRIU checkpoint generation.

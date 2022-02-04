@@ -1,0 +1,88 @@
+This document explains a sample application of ProcessControl.
+It runs 'base.exe' (on host) for 70 billion instructions and captures a 
+criu checkpoint there. It then restores the criu checkpoints (on target)
+ and runs it for 200 million instructions.
+
+Input: region-of-intrest for 505.mcf_r for SPEC-CPU2017
+  # (start) Icount = 70000001532 Length = 200000006 
+
+bash shell assumed.
+export PROCHOME=<path to ProcesControl directory with tools built with 'make').
+
+0. Prerequisites: Ensure ptrace and perf_event API are enabled
+echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+echo 0 | sudo tee /proc/sys/kernel/perf_event_paranoid
+
+1. On host: start the application in a paused state (redirect all outputs to files)
+
+$ setsid $PROCHOME/startpaused.sh mcf.procid -- ./base.exe inp.in > inp.out 2> inp.err
+
+2. On host: use the instruction controller to get to the desired point
+Our region of interest is at the 70B instruction mark. Let us use a polling interval of 10000 us:
+$PROCHOME/pstree-icount `cat mcf.procid ` 10000 70000001532 > mcf.ctrl.out 2> mcf.ctrl.err
+
+3. On host: dump the paused application onto the disk using CRIU
+sudo criu dump -vvvv -o mcf.chkpt.log -t `cat mcf.procid` -j
+
+4. On target: restore the disk checkpoint onto memory (re-run step 0 if pre-reqs are not met)
+Note: the contents of the files must remain the same from the time of dumping (step 3). So, backup files that could be overwritten
+cp inp.out inp.out.bak
+cp inp.err inp.err.bak
+sudo criu restore -vvvv -o mcf.rstor.log -j -d -s -S
+
+Sanity test: the original process must now be restored:
+  $ ls /proc/`cat mcf.procid`
+shoul show valid output.
+
+5. On target: use the icount run controller to resume application execution
+Execute for the desired instructions (200 million) and measure performance stats (IPC):
+perf stat -a -I 100 -o mcf.perf.out -e instructions,cycles -- sleep 10 &
+$PROCHOME/pstree-icount `cat mcf.procid` 1000 200000006 > mcf.run.out 2> mcf.run.err
+
+Cleanup:
+kill -9 `sudo grep Unseiz mcf.chkpt.log | awk '{ print $3 }'`
+Now restore backups and we are done:
+mv inp.out inp.out.new
+mv inp.err inp.err.new
+mv inp.out.bak inp.out
+mv inp.err.bak inp.err
+
+
+Sanity tests:
+$ sudo tail mcf.chkpt.log 
+(00.260558) cg:    `- Dumping rdma of /
+(00.260576) cg: Writing CG image
+(00.260609) unix: Dumping external sockets
+(00.260628) tty: Unpaired slave 3
+(00.260632) Writing image inventory (version 1)
+(00.260694) Running post-dump scripts
+(00.260697) Unfreezing tasks into 2
+(00.260699)     Unseizing 1890664 into 2
+(00.272421) Writing stats
+
+$ sudo tail mcf.rstor.log 
+(00.173905) 1890664 was stopped
+(00.173928) 1890664 was trapped
+(00.173932) 1890664 (native) is going to execute the syscall 11, required is 11
+(00.173951) 1890664 was stopped
+(00.173960) Run late stage hook from criu master for external devices
+(00.173963) restore late stage hook for external plugin failed
+(00.173965) Running pre-resume scripts
+(00.173970) Restore finished successfully. Tasks resumed.
+(00.173972) Writing stats
+(00.174035) Running post-resume scripts
+
+
+$ more mcf.ctrl.out 
+pstree size: 1
+printing per-thread icounts:(PID/TID: icount)
+1890664/1890664: 70012110303
+total: 70012110303 instructions
+
+
+$ more mcf.run.out
+pstree size: 1
+printing per-thread icounts:(PID/TID: icount)
+1890664/1890664: 200574614
+total: 200574614 instructions
+
