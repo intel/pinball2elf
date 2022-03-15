@@ -26,6 +26,9 @@ END_LEGAL */
 
 
 #include "pin.H"
+#if defined(SDE_INIT)
+#  include "sde-init.H"
+#endif
 #include "probe_control.H"
 #include "tool_macros.h"
 #include "lte_perf.h"
@@ -373,10 +376,15 @@ INT32 Usage()
 // argc, argv are the entire command line, including pin -t <toolname> -- ...
 int main(int argc, char * argv[])
 {
+#if defined(SDE_INIT)
+    sde_pin_init(argc,argv);
+    sde_init();
+#else
     if( PIN_Init(argc,argv) )
     {
         return Usage();
     }
+#endif
     PIN_InitSymbols();
 
     verbose=KnobVerbose.Value();

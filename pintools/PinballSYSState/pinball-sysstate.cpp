@@ -34,19 +34,37 @@ END_LEGAL */
 #include <sstream>
 
 #include "pin.H"
+#if defined(SDE_INIT)
+#  include "sde-init.H"
+#endif
+
 
 #include "pinball-sysstate.H"
 
+#if defined(SDE_INIT)
+#include "sde-pinplay-supp.H"
+#endif
+
+
 #include "pinplay.H"
 #include "pinplay-debugger-shell.H"
-PINPLAY_ENGINE pinplay_engine;
+PINPLAY_ENGINE *my_pinplay_engine;
+static PINPLAY_ENGINE pp_pinplay_engine;
+
 DR_DEBUGGER_SHELL::ICUSTOM_INSTRUMENTOR *
     CreatePinPlayInstrumentor(DR_DEBUGGER_SHELL::ISHELL *);
 DR_DEBUGGER_SHELL::ISHELL *shell = NULL;
 
+DR_DEBUGGER_SHELL::ICUSTOM_INSTRUMENTOR
+    *CreatePinPlayInstrumentor(DR_DEBUGGER_SHELL::ISHELL *shell)
+{
+    return new PINPLAY_DEBUGGER_INSTRUMENTOR(shell);
+}
+
 
 PINBALL_SYSSTATE::SYSSTATE pbsysstate;
 
+#if ! defined(SDE_INIT)
 #define KNOB_LOG_NAME  "log"
 #define KNOB_REPLAY_NAME "replay"
 #define KNOB_FAMILY "pintool:pinplay-driver"
@@ -58,9 +76,11 @@ KNOB<BOOL>KnobPinPlayReplayer(KNOB_MODE_WRITEONCE, KNOB_FAMILY,
 KNOB<BOOL>KnobPinPlayLogger(KNOB_MODE_WRITEONCE,  KNOB_FAMILY,
                      KNOB_LOG_NAME, "0", "Create a pinball");
 
+#endif
 
 
 
+#if ! defined(SDE_INIT)
 LOCALFUN INT32 Usage(CHAR *prog)
 {
     cerr << "Usage: " << prog << " Args  -- app appargs ..." << endl;
@@ -70,39 +90,47 @@ LOCALFUN INT32 Usage(CHAR *prog)
     
     return -1;
 }
-
-
-DR_DEBUGGER_SHELL::ICUSTOM_INSTRUMENTOR
-    *CreatePinPlayInstrumentor(DR_DEBUGGER_SHELL::ISHELL *shell)
-{
-    return new PINPLAY_DEBUGGER_INSTRUMENTOR(shell);
-}
+#endif
 
 // argc, argv are the entire command line, including pin -t <toolname> -- ...
 int main(int argc, char * argv[])
 {
+#if defined(SDE_INIT)
+    sde_pin_init(argc,argv);
+    sde_init();
+#else
     if( PIN_Init(argc,argv) )
     {
         return Usage(argv[0]);
     }
+#endif
    PIN_InitSymbols();
 
-    pinplay_engine.Activate(argc, argv, KnobPinPlayLogger, KnobPinPlayReplayer);
+#if defined(SDE_INIT)
+    // This is a replay-only tool (for now)
+    my_pinplay_engine = sde_tracing_get_pinplay_engine();
+#else
+    my_pinplay_engine = &pp_pinplay_engine;
+    my_pinplay_engine->Activate(argc, argv, KnobPinPlayLogger, KnobPinPlayReplayer);
+#endif
+
+#if ! defined(SDE_INIT)
     DEBUG_STATUS debugStatus = PIN_GetDebugStatus();
 
     if (debugStatus != DEBUG_STATUS_DISABLED)
     {
         shell = DR_DEBUGGER_SHELL::CreatePinPlayShell();
         DR_DEBUGGER_SHELL::STARTUP_ARGUMENTS args;
-        if (KnobPinPlayReplayer)
+        if (my_pinplay_engine->IsReplayerActive())
         {
             args._customInstrumentor = CreatePinPlayInstrumentor(shell);
         }
         if (!shell->Enable(args))
             return 1;
     }
+#endif
 
-    if(pbsysstate.Activate(&pinplay_engine) == 0)
+    if(pbsysstate.Activate(my_pinplay_engine) == 0)
     {
       cerr << "SYSSTATE activation failed. Returning without replay. \n";
       return 1;

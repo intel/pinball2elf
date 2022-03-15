@@ -418,8 +418,10 @@ static void lte_pe_sighandler_main(int signum, siginfo_t* siginfo, void* ucontex
 {
    if(signum == SIGIO)
    {
+#ifndef PINCRT
       if(siginfo->si_code != POLL_HUP)
          lte_pe_error(EXIT_FAILURE);
+#endif // not PINCRT
 
       lte_ioctl(siginfo->si_fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
 

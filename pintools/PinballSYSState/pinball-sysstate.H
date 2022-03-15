@@ -137,6 +137,7 @@ END_LEGAL */
 #include "instlib.H"
 #include "pinplay.H"
 
+#define LOCALTYPE 
 using namespace std;
 namespace PINBALL_SYSSTATE{
 constexpr signed int MAXFD = 500;
@@ -383,6 +384,7 @@ class SYSSTATE_PRODUCER
       _out_state_workdirname = statedirname + ".sysstate"; // will be changed to $CWD
       _verbose = verbose;
       _first_brk_retval = 0;
+      _pid = 0;
       _last_brk_retval = 0;
       _cwd_buf_addr = NULL;
       bzero(_fd2fstate,MAXFD*sizeof(FILE_STATE *));
@@ -1576,6 +1578,11 @@ class SYSSTATE_CONSUMER
             if(origFd == 2)
             {
               cerr << "Skipping 'stderr' re-direction with  " << sysfname << endl;
+              continue;
+            }
+            else if(origFd == 1)
+            {
+              cerr << "Skipping 'stdout' re-direction with  " << sysfname << endl;
               continue;
             }
             else

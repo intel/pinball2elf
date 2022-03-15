@@ -1,0 +1,26 @@
+To build with Intel Software Development Emulator (SDE) version 9.*
+
+Get SDE: https://www.intel.com/content/www/us/en/developer/articles/tool/software-development-emulator.html
+   Version 9.0 or higher
+
+Unpack and set SDE_BUILD_KIT to the root of the SDE kit.
+
+Download mubild:python-based build system from https://github.com/intelxed/mbuild
+
+You need to set two environment variables for this to work:
+-----------------------------------------------------------
+1) SDE_BUILD_KIT pointing to the root of the build kit.
+
+2) PYTHONPATH pointing to the directory containing build_kit.py and
+the directory containing the mbuild/mbuild directory.
+
+Run mfile.py using python 3.7 or later.
+
+For example, using a tcsh/csh like shell on non-windows:
+
+% setenv SDE_BUILD_KIT  <Path to SDE kit>
+
+% setenv PYTHONPATH <path to mbuild>:<path-to-pinball2elf>/pintools/
+
+% ./mfile.py --host-cpu ia32
+

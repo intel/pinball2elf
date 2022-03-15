@@ -34,13 +34,13 @@ END_LEGAL */
 
 #include "pin.H"
 #include "control_manager.H"
-#if defined(EMX_INIT)
-#  include "emx-init.H"
-#  include "emx-control.H"
+#if defined(SDE_INIT)
+#  include "sde-init.H"
+#  include "sde-control.H"
 #endif
 #if defined(PINPLAY)
-#if defined(EMX_INIT)
-#include "emx-pinplay-supp.H"
+#if defined(SDE_INIT)
+#include "sde-pinplay-supp.H"
 #endif
 #include "pinplay.H"
 static PINPLAY_ENGINE *pinplay_engine;
@@ -82,13 +82,13 @@ struct AddrData *AddrDataArray;
 CONTROL_MANAGER * control_manager = NULL;
 static CONTROLLER::CONTROL_MANAGER control("pinplay:");
 
-#if defined(EMX_INIT)
+#if defined(SDE_INIT)
   CONTROL_ARGS args("","pintool:control:pinplay");
 #else
   CONTROL_ARGS args("pinplay:","pintool:control:pinplay");
 #endif
 
-#if ! defined(EMX_INIT)
+#if ! defined(SDE_INIT)
 #if defined(PINPLAY)
 #define KNOB_LOG_NAME  "log"
 #define KNOB_REPLAY_NAME "replay"
@@ -275,7 +275,7 @@ VOID docount(THREADID tid, ADDRINT c)
 }
 
 
-#if ! defined(EMX_INIT)
+#if ! defined(SDE_INIT)
 #if defined(PINPLAY)
 static void ChangeEAX(ADDRINT *eax)
 {
@@ -332,7 +332,7 @@ VOID Trace(TRACE trace, VOID *v)
                        IARG_THREAD_ID,
                        IARG_UINT32, BBL_NumIns(bbl),
                        IARG_END);
-#if ! defined(EMX_INIT)
+#if ! defined(SDE_INIT)
 #if defined(PINPLAY)
         if (KnobHandleXsave)
         {
@@ -407,9 +407,9 @@ INT32 Usage()
 // argc, argv are the entire command line, including pin -t <toolname> -- ...
 int main(int argc, char * argv[])
 {
-#if defined(EMX_INIT)
-    emx_pin_init(argc,argv);
-    emx_init();
+#if defined(SDE_INIT)
+    sde_pin_init(argc,argv);
+    sde_init();
 #else
     if( PIN_Init(argc,argv) )
     {
@@ -420,17 +420,17 @@ int main(int argc, char * argv[])
 
     OpenThreadFiles();
 
-#if defined(EMX_INIT)
+#if defined(SDE_INIT)
     // This is a replay-only tool (for now)
-    pinplay_engine = emx_tracing_get_pinplay_engine();
+    pinplay_engine = sde_tracing_get_pinplay_engine();
 #else
     pinplay_engine = &pp_pinplay_engine;
     pinplay_engine->Activate(argc, argv, KnobPinPlayLogger, KnobPinPlayReplayer);
 #endif
 
 #if defined(PINPLAY)
-#if defined(EMX_INIT)
-    control_manager = EMX_CONTROLLER::emx_controller_get();
+#if defined(SDE_INIT)
+    control_manager = SDE_CONTROLLER::sde_controller_get();
 #else
 
     //if(KnobPinPlayLogger)
@@ -439,8 +439,8 @@ int main(int argc, char * argv[])
    control_manager = &control;
 #endif
 #else //not PinPlay
-#if defined(EMX_INIT)
-    control_manager = EMX_CONTROLLER::emx_controller_get();
+#if defined(SDE_INIT)
+    control_manager = SDE_CONTROLLER::sde_controller_get();
 #else
    control.Activate();
    control_manager = &control;
