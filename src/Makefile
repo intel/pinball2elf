@@ -35,9 +35,9 @@ COMPILER=gnu
 #COMPILER=ms
 
 ifeq ($(COMPILER),gnu)
-  GCCVERSIONEQ5 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \== 5)
-  GCCVERSIONGTEQ7 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 7)
-  GCCVERSIONGTEQ9 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 9)
+  GCCVERSIONEQ5 := $(shell expr `g++ -dumpversion | cut -f1 -d.` \== 5)
+  GCCVERSIONGTEQ7 := $(shell expr `g++ -dumpversion | cut -f1 -d.` \>= 7)
+  GCCVERSIONGTEQ9 := $(shell expr `g++ -dumpversion | cut -f1 -d.` \>= 9)
   CC = gcc
   CXX = g++
   CXX_LINKER = $(CXX)
@@ -63,10 +63,10 @@ ifeq ($(COMPILER),gnu)
                          -Wno-sequence-point -Wno-switch                        \
                          -Wno-write-strings -Wno-format
   ifeq "$(GCCVERSIONGTEQ9)" "1"
-  WARN_SHOULD_BE_FIXED +=   -Wno-address-of-packed-member
+  WARN_SHOULD_BE_FIXED +=   -Wno-address-of-packed-member -Wno-error=address-of-packed-member 
   endif
 
-  WARNINGS     = -Wall -Wextra -Wno-error=address-of-packed-member -Werror $(WARN_SHOULD_BE_FIXED) -fdiagnostics-show-option
+  WARNINGS     = -Wall -Wextra -Werror $(WARN_SHOULD_BE_FIXED) -fdiagnostics-show-option
   C_WARNINGS   = -Wnested-externs -Wdeclaration-after-statement
   CXX_WARNINGS = -Wno-invalid-offsetof -Wno-deprecated
   GUARDFLAGS = -fstack-protector-all # requires gcc 4.9 or higher
