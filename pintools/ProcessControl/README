@@ -13,6 +13,15 @@ stop a process tree after a given number of total instructions on core 0
 <us>     :     polling time period in microseconds
 <limit>  :     instruction count beyond which to stop (0 for run to completion)
 
+pstree-pccount:
+usage: ./pstree-pccount <pid> <tid> <pc> <limit>
+stop a process tree at a given thread after <limit> occurrences of an instruction at <pc>
+<pid>    :     pid of the root of a SIGSTOPPED pstree
+<tid>    :     tid of the target thread
+<pc>     :     instruction address of the target instruction
+<limit>  :     no. of occurrences of <pc> after which to stop
+
+
 pstree-timedrun 
 usage: ./pstree-timedrun <pid> <us> <limit>
 stop a process tree after executing for a given number of micro-seconds

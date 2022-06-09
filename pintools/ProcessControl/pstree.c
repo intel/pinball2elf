@@ -1,18 +1,3 @@
-/*BEGIN_LEGAL 
-BSD License 
-
-Copyright (c)2022 Intel Corporation. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-END_LEGAL */
 #include "pstree.h"
 
 void set_procfs_task_dir(pid_t pid, char *dir)
@@ -230,12 +215,50 @@ int setup_icount(pid_t pid)
     return pfd;
 }
 
+/* setup a hardware breakpoint in 'pid'
+ * at 'addr' to fire after 'count' 
+ * occurrences.
+ */
+int setup_pccount(pid_t pid, void *addr, unsigned long count)
+{
+    struct perf_event_attr pe;
+    int pfd = -1;
+
+    memset(&pe, 0, sizeof(struct perf_event_attr));
+    pe.type = PERF_TYPE_BREAKPOINT;
+    pe.size = sizeof(struct perf_event_attr);
+    pe.config = 0;
+    pe.bp_type = HW_BREAKPOINT_X;
+    pe.bp_addr = (unsigned long) addr;
+    pe.bp_len = sizeof(long);
+    pe.sample_type = PERF_SAMPLE_IP;
+    pe.sample_period = count;
+    pe.watermark = 1;
+    pe.wakeup_watermark = 1;
+    pe.disabled = 1;
+    pe.inherit = 0;
+    pe.pinned = 1;
+    pe.exclude_kernel = 1;
+    pe.exclude_hv = 1;
+    pfd = syscall(__NR_perf_event_open, &pe, pid, -1, -1, 0);
+    if (pfd < 0) {
+        perror("setup_pccount: unable to setup pccount");
+        exit(EXIT_FAILURE);
+    }
+    /* setup SIGIO to fire once watermark is reached    */
+    fcntl(pfd, F_SETOWN, pid);
+	fcntl(pfd, F_SETFL, fcntl(pfd, F_GETFL) | FASYNC);
+    ioctl(pfd, PERF_EVENT_IOC_RESET, 0);
+    ioctl(pfd, PERF_EVENT_IOC_ENABLE, 0);
+    return pfd;
+}
+
 long parse_long(char *arg, const char *err)
 {
     long result;
     char *last;
     errno = 0;
-    result = strtol(arg, &last, 10);
+    result = strtol(arg, &last, 0);
     if (errno) {
         perror(err);
         exit(EXIT_FAILURE);
@@ -251,7 +274,7 @@ unsigned long long parse_ull(char *arg, const char *err)
     unsigned long long result;
     char *last;
     errno = 0;
-    result = strtoull(arg, &last, 10);
+    result = strtoull(arg, &last, 0);
     if (errno) {
         perror(err);
         exit(EXIT_FAILURE);
