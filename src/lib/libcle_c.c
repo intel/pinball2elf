@@ -15,6 +15,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 END_LEGAL */
 #include <lte_lc.h>
 #include <limits.h>
+#include <unistd.h>
 
 #ifndef __ASSEMBLY__
 # define __ASSEMBLY__

@@ -19,6 +19,13 @@ END_LEGAL */
 #include <stdlib.h>
 #include <string.h>
 #include <linux/hw_breakpoint.h>
+#include <unistd.h>
+
+//dummy definition added to fix Ubuntu 22.04 build issue
+long sysconf(int name)
+{
+  return 0;
+}
 
 #define LIBPERFLE_SAMASK
 #define LIBPERFLE_SIGRT
