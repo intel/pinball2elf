@@ -55,6 +55,9 @@ __lte_static int verbose=0;
 __lte_static   uint64_t istartcount = 0;
 __lte_static   uint64_t istopcount = 0;
 __lte_static   uint64_t ideltacount = 0;
+__lte_static   uint64_t pcstartcount = 0;
+__lte_static   uint64_t pcstopcount = 0;
+__lte_static   uint64_t pcdeltacount = 0;
 __lte_static int counters_started=0;
 
 // Based on /usr/include/linux/perf_event.h
@@ -97,6 +100,7 @@ __lte_static int hw_event_enabled[PERF_COUNT_HW_MAX]={0};
 __lte_static int sw_event_enabled[PERF_COUNT_SW_MAX]={0};
 __lte_static perfevent_t e_hw_perf[PERF_TMAX][PERF_COUNT_HW_MAX]={0};
 __lte_static perfevent_t e_sw_perf[PERF_TMAX][PERF_COUNT_SW_MAX]={0};
+__lte_static perfevent_t e_hw_idelta_perf;
 
 uint64_t rdtsc(){
     unsigned int lo,hi;
@@ -192,6 +196,28 @@ void enable_perfcounters(uint64_t tnum)
    }
 }
 
+
+
+void disable_perfcounters(uint64_t tnum)
+{
+   int my_out_fd =  out_fd;
+   int j;
+   for(j = 0; j <PERF_COUNT_HW_MAX  ; ++j)
+   {
+      if(hw_event_enabled[j])
+      {
+        lte_pe_disable(e_hw_perf[tnum][j]);
+      }
+   }
+   for(j = 0; j <PERF_COUNT_SW_MAX  ; ++j)
+   {
+      if(sw_event_enabled[j])
+      {
+        lte_pe_disable(e_sw_perf[tnum][j]);
+      }
+   }
+}
+
 void print_perfcounters(uint64_t tnum)
 {
    int my_out_fd =  out_fd;
@@ -227,8 +253,16 @@ void simendicount_callback(lte_td_t td, int signum, siginfo_t* info, void* p)
    int my_out_fd = out_fd;
    lte_write(my_out_fd, "Simulation end: TSC ", lte_strlen("Simulation end: TSC ")-1); 
         lte_diprintfe(my_out_fd, rdtsc(), '\n');
-    lte_write(my_out_fd, "\tSim-end-icount ", lte_strlen("\tSim-end-icount ")-1); 
-    lte_diprintfe(my_out_fd, istopcount, '\n');
+    if(istopcount)
+    {
+      lte_write(my_out_fd, "\tSim-end-icount (input)", lte_strlen("\tSim-end-icount (input)")-1); 
+      lte_diprintfe(my_out_fd, istopcount, '\n');
+    }
+    if(ideltacount)
+    {
+      lte_write(my_out_fd, "\tSim-end-deltaicount (input)", lte_strlen("\tSim-end-deltaicount (input)")-1); 
+      lte_diprintfe(my_out_fd, ideltacount, '\n');
+    }
 
         if(counters_started) print_perfcounters(tnum);
         lte_fsync(my_out_fd);
@@ -236,7 +270,29 @@ void simendicount_callback(lte_td_t td, int signum, siginfo_t* info, void* p)
         lte_write(my_out_fd, "Thread end: TSC ", lte_strlen("Thread end: TSC ")-1); 
         lte_diprintfe(my_out_fd, rdtsc(), '\n');
         lte_fsync(my_out_fd);
+   // Why are we exiting here? Without the exit, process becomes a zombie
+   // libperf will otherwise do an lte_exit() to support graceful exit
+   // libperf  supports ELFie as well where an extra monitor thread exists
+   //  so  using lte_exit_group() in libperfle may not be safe.
+   //  so best to do lte_exit_group() here
    lte_exit_group(0);
+}
+
+void start_idelta_counter()
+{
+   lte_td_t td = NULL;
+    if(ideltacount != 0)
+    {
+      if(verbose)lte_write(2, "starting idelta counter:\n", lte_strlen("starting idelta counter:\n")-1); 
+      td = lte_pe_init_thread_sampling_idelta(0, ideltacount, ideltacount, &simendicount_callback);
+      e_hw_idelta_perf = lte_pe_get_thread_fd(td);
+      lte_pe_disable(e_hw_idelta_perf);
+      if(verbose)
+      {
+        lte_write(2, " Delta icount: ", lte_strlen(" Delta icount: ")-1); 
+        lte_diprintfe(2, ideltacount, '\n');
+      }
+    }
 }
 
 void warmupendicount_callback(lte_td_t td, int signum, siginfo_t* info, void* p)
@@ -247,26 +303,48 @@ void warmupendicount_callback(lte_td_t td, int signum, siginfo_t* info, void* p)
    int my_out_fd = out_fd;
    lte_write(my_out_fd, "Warmup end: TSC ", lte_strlen("Warmup end: TSC ")-1); 
         lte_diprintfe(my_out_fd, rdtsc(), '\n');
-    lte_write(my_out_fd, "\tWarmup-end-icount ", lte_strlen("\tWarmup-end-icount ")-1); 
+    lte_write(my_out_fd, "\tWarmup-end-icount (input)", lte_strlen("\tWarmup-end-icount (input)")-1); 
     lte_diprintfe(my_out_fd, istartcount, '\n');
         if(counters_started) print_perfcounters(tnum);
         lte_write(my_out_fd, sep, lte_strlen(sep)-1);
         lte_fsync(my_out_fd);
+     if(ideltacount) 
+     {
+        cerr <<  ": enabling ideltastop counter: " << ideltacount << endl;
+        lte_pe_enable(e_hw_idelta_perf);
+     }
 }
 
 void start_counters()
 {
    lte_td_t td = NULL;
-   if((istartcount != 0) && (istopcount != 0))
+   if((istopcount != 0) && (ideltacount != 0))
    {
+        cerr <<  "Only one of 'istop' and 'istopdelta' can be specified" << endl;
+        exit(1);
+   }
+   if((istartcount != 0) && ((istopcount != 0) || (ideltacount != 0)))
+   {
+      cerr <<  "'istop' " << istopcount << endl;
       if(verbose)lte_write(2, "Using warmup:\n", lte_strlen("Using warmup:\n")-1); 
-      td = lte_pe_init_thread_sampling_icount(0, istopcount, istopcount, &simendicount_callback, istartcount, istartcount, &warmupendicount_callback);
+      if(istopcount)
+        td = lte_pe_init_thread_sampling_icount(0, istopcount, istopcount, &simendicount_callback, istartcount, istartcount, &warmupendicount_callback);
+      else
+        td = lte_pe_init_thread_sampling_icount(0, MAXICOUNT, MAXICOUNT, &simendicount_callback, istartcount, istartcount, &warmupendicount_callback);
       if(verbose)
       {
         lte_write(2, " Warmup-end icount: ", lte_strlen(" Warmup-end icount: ")-1); 
         lte_diprintfe(2, istartcount, ' ');
-        lte_write(2, "End icount: ", lte_strlen("End icount: ")-1); 
-        lte_diprintfe(2, istopcount, '\n');
+        if(istopcount)
+        {
+          lte_write(2, "Simulation end icount: ", lte_strlen("Simulation end icount: ")-1); 
+          lte_diprintfe(2, istopcount, '\n');
+        }
+        else
+        {
+          lte_write(2, "Simulation end delta-icount: ", lte_strlen("Simulation end delta-icount: ")-1); 
+          lte_diprintfe(2, ideltacount, '\n');
+        }
       }
     }
     if((istartcount == 0) && (istopcount != 0))
@@ -279,40 +357,29 @@ void start_counters()
         lte_diprintfe(2, istopcount, '\n');
       }
     }
-    if(istopcount == 0)
+    if((istartcount == 0) && (ideltacount != 0))
     {
-      if(verbose)lte_write(2, "NOT using icount events\n", lte_strlen("NOT using icount events\n")-1); 
-      if(istartcount)lte_write(2, "Ignoring istart without istop\n", lte_strlen("Ignoring istart without istop\n")-1); 
+      if(verbose)lte_write(2, "NOT using warmup or sim\n", lte_strlen("NOT using warmup or sim\n")-1); 
       td = lte_pe_init_thread_sampling_icount(0, MAXICOUNT, MAXICOUNT, &simendicount_callback, 0, 0, NULL);
     }
-   counters_started=1;
+    if((istopcount == 0) && (ideltacount == 0))
+    {
+      if(verbose)lte_write(2, "NOT using icount events\n", lte_strlen("NOT using icount events\n")-1); 
+      if(istartcount)lte_write(2, "Ignoring istart without istop/ideltastop\n", lte_strlen("Ignoring istart without istop/ideltastop\n")-1); 
+      td = lte_pe_init_thread_sampling_icount(0, MAXICOUNT, MAXICOUNT, &simendicount_callback, 0, 0, NULL);
+    }
    setup_perfcounters(0, td);
    enable_perfcounters(0);
+   if(ideltacount) start_idelta_counter();
+   counters_started=1;
 }
 
-void start_idelta_counter()
-{
-   lte_td_t td = NULL;
-    if(ideltacount != 0)
-    {
-      if(verbose)lte_write(2, "NOT using warmup:\n", lte_strlen("NOT using warmup:\n")-1); 
-      td = lte_pe_init_thread_sampling_icount(0, ideltacount, ideltacount, &simendicount_callback, 0, 0, NULL);
-      if(verbose)
-      {
-        lte_write(2, " Delta icount: ", lte_strlen(" Delta icount: ")-1); 
-        lte_diprintfe(2, ideltacount, '\n');
-      }
-    }
-   counters_started=1;
-   setup_perfcounters(0, td);
-   enable_perfcounters(0);
-}
 
 void perf_on_entry(uint64_t num_threads)
 {
    uint64_t ptscentry = rdtsc();
    if(KnobEnableOnStart) start_counters();
-   lte_write(out_fd, "ROI start: TSC ", lte_strlen("ROI start: TSC ")-1); 
+   lte_write(out_fd, "RTN ROI start: TSC ", lte_strlen("RTN ROI start: TSC ")-1); 
    lte_diprintfe(out_fd, ptscentry, '\n');
    if(counters_started) print_perfcounters(0);
    lte_write(out_fd, sep, lte_strlen(sep)-1);
@@ -346,7 +413,7 @@ void perf_on_exit()
 {
    uint64_t ptscend = rdtsc();
     int my_out_fd = out_fd;
-    lte_write(my_out_fd, "ROI end: TSC ", lte_strlen("ROI end: TSC ")-1); 
+    lte_write(my_out_fd, "RTN ROI end: TSC ", lte_strlen("RTN ROI end: TSC ")-1); 
     lte_diprintfe(my_out_fd, ptscend, '\n');
     if(counters_started)
     {
@@ -371,8 +438,8 @@ VOID MyEventHandler(PROBE_EVENT_TYPE pe)
           perf_on_entry(/*num_threads*/1);
           if(ideltacount) 
           {
-            cerr <<  ": starting ideltastop counter: " << ideltacount << endl;
-            start_idelta_counter();
+              cerr <<  ": enabling ideltastop counter: " << ideltacount << endl;
+              lte_pe_enable(e_hw_idelta_perf);
           }
           break;
         }

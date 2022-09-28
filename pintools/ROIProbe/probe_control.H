@@ -55,8 +55,12 @@ typedef enum {
   PROBE_EVENT_RSTOP,
   PROBE_EVENT_IDELTASTOP,
   PROBE_EVENT_ISTART,
-  PROBE_EVENT_ISTOP
+  PROBE_EVENT_ISTOP,
+  PROBE_EVENT_PCDELTASTOP,
+  PROBE_EVENT_PCSTART,
+  PROBE_EVENT_PCSTOP
 }PROBE_EVENT_TYPE;
+
 typedef pair<PROBE_EVENT_TYPE,UINT64> IEPAIR;
 typedef list<IEPAIR> IELIST;
 typedef IELIST::iterator IELISTITER;
@@ -64,6 +68,14 @@ typedef IELIST::iterator IELISTITER;
 static IEPAIR istart_pair;
 static IEPAIR istop_pair;
 static IEPAIR idelta_pair;
+
+typedef pair<UINT64,UINT64> PCEPAIR;
+typedef list<PCEPAIR> PCELIST;
+typedef PCELIST::iterator PCELISTITER;
+
+static PCEPAIR pcstart_pair;
+static PCEPAIR pcstop_pair;
+static PCEPAIR pcdelta_pair;
 
 typedef struct _RINFO
 {
@@ -111,6 +123,21 @@ static PROBE_CONTROL_HANDLER UserCallBack = NULL;
         case PROBE_EVENT_ISTOP:
         {
           return "istop";
+          break;
+        }
+        case PROBE_EVENT_PCSTART:
+        {
+          return "pcstart";
+          break;
+        }
+        case PROBE_EVENT_PCDELTASTOP:
+        {
+          return "pcdeltastop";
+          break;
+        }
+        case PROBE_EVENT_PCSTOP:
+        {
+          return "pcstop";
           break;
         }
         default:
@@ -222,6 +249,30 @@ class PROBECONTROL
     {
       return idelta_pair.second;
     }
+    UINT64 PCstartValue()
+    {
+      return pcstart_pair.first;
+    }
+    UINT64 PCstartCount()
+    {
+      return pcstart_pair.second;
+    }
+    UINT64 PCstopValue()
+    {
+      return pcstop_pair.first;
+    }
+    UINT64 PCstopCount()
+    {
+      return pcstop_pair.second;
+    }
+    UINT64 PCdeltastopValue()
+    {
+      return pcdelta_pair.first;
+    }
+    UINT64 PCdeltastopCount()
+    {
+      return pcdelta_pair.second;
+    }
   private:   
   KNOB<string> _rspecInKnob;
   KNOB<BOOL> _rspecVerboseKnob;
@@ -290,6 +341,9 @@ class PROBECONTROL
       else if (strcmp(eventstr.c_str(),"istart") == 0) event = PROBE_EVENT_ISTART;
       else if (strcmp(eventstr.c_str(),"istop") == 0) event = PROBE_EVENT_ISTOP;
       else if (strcmp(eventstr.c_str(),"ideltastop") == 0) event = PROBE_EVENT_IDELTASTOP;
+      else if (strcmp(eventstr.c_str(),"pcstart") == 0) event = PROBE_EVENT_PCSTART;
+      else if (strcmp(eventstr.c_str(),"pcstop") == 0) event = PROBE_EVENT_PCSTOP;
+      else if (strcmp(eventstr.c_str(),"pcdeltastop") == 0) event = PROBE_EVENT_PCDELTASTOP;
       else ASSERT(FALSE, "Invalid event field."+eventstr);
 
       switch(event)

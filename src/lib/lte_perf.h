@@ -60,7 +60,7 @@ uint64_t lte_pe_read_thread_icount(lte_td_t td);
 // on performance counter overflow, otherwise SIGIO
 int lte_pe_init(uint64_t num_threads, int sigovfl, const void* sigset);
 // initiazile sampling for the thread specified by tnum; on error returns 0
-lte_td_t lte_pe_init_thread_sampling(uint64_t tnum, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback);
+lte_td_t lte_pe_init_thread_sampling_idelta(uint64_t tnum, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback);
 
 lte_td_t lte_pe_init_thread_sampling_icount(uint64_t tnum, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback, uint64_t wicount_period, uint64_t wicount_max, lte_pe_cbk_t wcallback); 
 

@@ -47,6 +47,7 @@ typedef struct thread_info_s {
 // as loader not necessarily fills .bss with zeroes
 __lte_static thread_info_t* s_thread = NULL;
 __lte_static thread_info_t* s_thread_alt = NULL;
+__lte_static thread_info_t * s_thread_delta = NULL;
 __lte_static uint64_t s_num_threads = 0;
 __lte_static int s_blocked_signals_num = 0;
 __lte_static int s_sig_overflow = SIGIO;
@@ -357,16 +358,18 @@ static void lte_pe_sighandler(int signum, siginfo_t* siginfo, void* ucontext)
 {
    if(signum == SIGIO)
    {
+#if 0
       if(siginfo->si_code != POLL_HUP)
          lte_pe_error(EXIT_FAILURE);
+#endif
 
       lte_ioctl(siginfo->si_fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
 
-      thread_info_t* tinfo_tid = lte_pe_get_thread_info_by_tid(lte_gettid());
+      thread_info_t* tinfo_tid = s_thread_delta;
       if(tinfo_tid && tinfo_tid->fd != siginfo->si_fd)
          lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
 
-      thread_info_t* tinfo_sig = lte_pe_get_thread_info_by_fd(siginfo->si_fd);
+      thread_info_t* tinfo_sig = s_thread_delta;
       if(tinfo_sig)
       {
          lte_pe_sample(tinfo_sig, signum, siginfo, ucontext);
@@ -569,9 +572,10 @@ static int lte_pe_open_perf_bpevent(pid_t pid, int cpu, int fd_group, uint32_t p
    return lte_perf_event_open(&pe, pid, cpu, fd_group, 0);
 }
 
-static lte_td_t lte_pe_set_sampling_cbk(uint64_t tnum, int cpu, pid_t pid, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback)
+static lte_td_t lte_pe_set_sampling_cbk(uint64_t tnum, int cpu, pid_t pid, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback, thread_info_t * tinfo)
 {
-   thread_info_t* tinfo = lte_pe_get_thread_info_by_tnum(tnum);
+   if (!tinfo)
+    tinfo = lte_pe_get_thread_info_by_tnum(tnum);
 
    if(!tinfo)
       return NULL;
@@ -979,12 +983,21 @@ uint64_t lte_pe_read_thread_icount(lte_td_t td)
 
 lte_td_t lte_pe_set_thread_end(uint64_t tnum, uint64_t icount)
 {
-   return lte_pe_set_sampling_cbk(tnum, -1, 0/*lte_gettid()*/, icount, icount, NULL);
+   return lte_pe_set_sampling_cbk(tnum, -1, 0/*lte_gettid()*/, icount, icount, NULL, NULL);
 }
 
-lte_td_t lte_pe_init_thread_sampling(uint64_t tnum, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback)
+lte_td_t lte_pe_init_thread_sampling_idelta(uint64_t tnum, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback)
 {
-   return lte_pe_set_sampling_cbk(tnum, -1, 0/*lte_gettid()*/, icount_period, icount_max, callback);
+   if (tnum != 0) // only one thread, tnum==0, supported currently
+    lte_pe_error(EXIT_FAILURE);
+   s_thread_delta =  (thread_info_t *)lte_mmap(0, 
+          sizeof(thread_info_t),
+          PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+   if(!s_thread_delta)
+    lte_pe_error(EXIT_FAILURE);
+   else
+    lte_memset(s_thread_delta, 0, sizeof(thread_info_t));
+   return lte_pe_set_sampling_cbk(tnum, -1, 0/*lte_gettid()*/, icount_period, icount_max, callback, s_thread_delta);
 }
 
 lte_td_t lte_pe_init_thread_sampling_icount(uint64_t tnum, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback, uint64_t wicount_period, uint64_t wicount_max, lte_pe_cbk_t wcallback)
