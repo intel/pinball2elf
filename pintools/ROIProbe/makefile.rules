@@ -109,6 +109,12 @@ $(OBJDIR)ROIperf$(PINTOOL_SUFFIX): $(OBJDIR)ROIperf.${OBJEXT} $(CONTROLLERLIB)
 	@echo "*********************************"
 	@echo ""
 
+$(OBJDIR)probe_control$(PINTOOL_SUFFIX): $(OBJDIR)probe_control.${OBJEXT} $(CONTROLLERLIB) 
+	$(LINKER) $(TOOL_LDFLAGS) $(LINK_EXE)$@ $^ $(TOOL_LPATHS) $(TOOL_LIBS) -L$(LTE_LIB_HOME) $(MYLIBS) $(PIN_LIBS) $(DBG)  
+	@echo ""
+	@echo "*********************************"
+	@echo ""
+
 ## cleaning
 localclean: 
 	-rm -r -f *.${OBJEXT} pin.log obj-* 

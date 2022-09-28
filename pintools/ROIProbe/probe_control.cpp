@@ -31,14 +31,14 @@ VOID MyProbeHandler(PROBE_CONTROL::PROBE_EVENT_TYPE pe)
   cerr << "MyHandler called: ";
   switch(pe)
       {
-        case PROBE_CONTROL::PROBE_EVENT_START:
+        case PROBE_CONTROL::PROBE_EVENT_RSTART:
         {
-          cerr <<  "start";
+          cerr <<  "RTNstart";
           break;
         }
-        case PROBE_CONTROL::PROBE_EVENT_STOP:
+        case PROBE_CONTROL::PROBE_EVENT_RSTOP:
         {
-          cerr <<  "stop";
+          cerr <<  "RTNstop";
           break;
         }
         default:

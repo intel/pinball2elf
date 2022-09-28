@@ -54,6 +54,7 @@ void read_environ(); // function to be added by pinball2elf*.sh scripts
 __lte_static int verbose=0;
 __lte_static   uint64_t istartcount = 0;
 __lte_static   uint64_t istopcount = 0;
+__lte_static   uint64_t ideltacount = 0;
 __lte_static int counters_started=0;
 
 // Based on /usr/include/linux/perf_event.h
@@ -289,6 +290,24 @@ void start_counters()
    enable_perfcounters(0);
 }
 
+void start_idelta_counter()
+{
+   lte_td_t td = NULL;
+    if(ideltacount != 0)
+    {
+      if(verbose)lte_write(2, "NOT using warmup:\n", lte_strlen("NOT using warmup:\n")-1); 
+      td = lte_pe_init_thread_sampling_icount(0, ideltacount, ideltacount, &simendicount_callback, 0, 0, NULL);
+      if(verbose)
+      {
+        lte_write(2, " Delta icount: ", lte_strlen(" Delta icount: ")-1); 
+        lte_diprintfe(2, ideltacount, '\n');
+      }
+    }
+   counters_started=1;
+   setup_perfcounters(0, td);
+   enable_perfcounters(0);
+}
+
 void perf_on_entry(uint64_t num_threads)
 {
    uint64_t ptscentry = rdtsc();
@@ -319,6 +338,7 @@ void perf_activate(uint64_t num_threads)
    out_fd = lte_open(fname, O_WRONLY | O_CREAT | O_TRUNC , S_IRUSR|S_IWUSR|S_IRGRP);
    istartcount = pbcontrol.IstartCount(); 
    istopcount = pbcontrol.IstopCount(); 
+   ideltacount = pbcontrol.IdeltaCount(); 
    if(!KnobEnableOnStart) start_counters();
 }
 
@@ -340,20 +360,25 @@ void perf_on_exit()
     lte_close(my_out_fd);
 }
 
-VOID MyProbeHandler(PROBE_EVENT_TYPE pe)
+VOID MyEventHandler(PROBE_EVENT_TYPE pe)
 {
-  cerr << "MyHandler called: ";
+  cerr << "MyEventHandler called: ";
   switch(pe)
       {
-        case PROBE_EVENT_START:
+        case PROBE_EVENT_RSTART:
         {
-          cerr <<  "start";
+          cerr <<  "RTNstart";
           perf_on_entry(/*num_threads*/1);
+          if(ideltacount) 
+          {
+            cerr <<  ": starting ideltastop counter: " << ideltacount << endl;
+            start_idelta_counter();
+          }
           break;
         }
-        case PROBE_EVENT_STOP:
+        case PROBE_EVENT_RSTOP:
         {
-          cerr <<  "stop";
+          cerr <<  "RTNstop";
           perf_on_exit();
           if(KnobEarlyOut) exit(0);
           break;
@@ -393,7 +418,7 @@ int main(int argc, char * argv[])
     {
       cerr << "WARNING: Probe control not activated." << endl;
     }
-    pbcontrol.RegisterHandler(MyProbeHandler);
+    pbcontrol.RegisterHandler(MyEventHandler);
 
     perf_activate(1);
     // Start the program, never returns

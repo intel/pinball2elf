@@ -1,19 +1,21 @@
 A generic region-of-interest monitoring utility based on Pin-probes
 It allows client tools to register callbacks on region-of-interests.
 Two types of regions are supported:
-PC + count:
+RTN + count:
    Thread-0: give a callback after 'count' executions of PC.
    Implemented using Pin-probes
-    start:RTN:count, start:PC:count
-    stop:RTN:count, stop:PC:count
-icount:
+    RTNstart:RTN-name:count, RTNstart:hex-PC:count
+    RTNstop:RTN:-namecount, RTNstop:hex-PC:count
+HW instruction count:
    Thread-0: give a callback after 'count' instructions are executed
    Implemented using the Linux system call perf_event_open()
    with HW counter 'PERF_COUNT_HW_CPU_INSTRUCTIONS' set for an overflow 
    callback after 'count' instructions
     istart:count
     istop:count
-A client tool can register a callback using RegisterHandler().
+    ideltastop:count ==> enabled only after a "START" event
+A client tool can register a callback using RegisterHandler() -- the callback
+ is only supported for RTNstart/RTNstop events currently.
 See ROI_perf.cpp as an example client tool that uses probe_control.
 
 To build the default tool probe_control.so:
