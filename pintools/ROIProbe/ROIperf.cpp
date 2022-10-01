@@ -41,9 +41,6 @@ static PROBECONTROL pbcontrol;
 KNOB<BOOL> KnobVerbose(KNOB_MODE_WRITEONCE, "pintool", "verbose", "0",
                   "Verbose output");
 
-KNOB<BOOL> KnobEarlyOut(KNOB_MODE_WRITEONCE, "pintool", "exit_on_stop", "0",
-                  "Exit process after 'stop' reached");
-
 KNOB<BOOL> KnobEnableOnStart(KNOB_MODE_WRITEONCE, "pintool", "enable_on_start", "0",
                   "Enable perf counters after 'start' reached (default 0: enble perf counters at the beginning of execution.)");
 
@@ -275,6 +272,7 @@ void simendicount_callback(lte_td_t td, int signum, siginfo_t* info, void* p)
    // libperf  supports ELFie as well where an extra monitor thread exists
    //  so  using lte_exit_group() in libperfle may not be safe.
    //  so best to do lte_exit_group() here
+   cerr <<  "Exiting on performance counter stop event by design" << endl; 
    lte_exit_group(0);
 }
 
@@ -447,7 +445,8 @@ VOID MyEventHandler(PROBE_EVENT_TYPE pe)
         {
           cerr <<  "RTNstop";
           perf_on_exit();
-          if(KnobEarlyOut) exit(0);
+          cerr <<  ": Exiting on performance counter stop event by design" << endl; 
+          exit(0);
           break;
         }
         default:
