@@ -1,31 +1,38 @@
 A Pin-probe/Linux tool, ROIperf.so, to find performance metrics (RDTSC output, hardware performance counters). 
+See  README.probe_control for the types of events supported.
+NOTE: not all combination of events are currently supported by ROIperf.
+  Namely, with PC+count, only the following combinations are supported:
+   PCstart:PCstop
+   PCstart:PCdeltastop
+   PCstart:ideltastop
 
 To build:
  %setenv PIN_ROOT <path to your Pin kit>
  %make clean; make
 
 Example:
-% echo "stop:exit:1" > probe.in
+% echo "RTNstop:exit:1" > probe.in
 % cat probe.in
-stop:exit:1
+RTNstop:exit:1
 
 % $PIN_ROOT/pin -t obj-intel64/ROIperf.so -probecontrol:in probe.in -- /bin/ls
 ...
  exec_count 1
-stop event triggered @exit:1
-MyHandler called: stop
+RTNstop event triggered @exit:1
+MyHandler called: RTNstop: Exiting on performance counter stop event by design
 
 % cat perf.txt
-ROI end: TSC 10279648900350570
+RTN ROI end: TSC 10279648900350570
 
 %setenv ROIPERF_PERFLIST "0:0,0:1"
 
 % $PIN_ROOT/pin -t obj-intel64/ROIperf.so -probecontrol:in probe.in -- /bin/ls
 ...
 stop event triggered @exit:1
-MyHandler called: stop
+MyHandler called: RTNstop: Exiting on performance counter stop event by design
 
 
 % cat perf.txt
-ROI end: TSC 10279903946397124
-hw_cpu_cycles:70054817 hw_instructions:122668631 
+RTN ROI end: TSC 75189684037029940
+hw_cpu_cycles:53501457 hw_instructions:99621299 
+

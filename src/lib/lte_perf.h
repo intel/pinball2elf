@@ -62,10 +62,12 @@ int lte_pe_init(uint64_t num_threads, int sigovfl, const void* sigset);
 // initiazile sampling for the thread specified by tnum; on error returns 0
 lte_td_t lte_pe_init_thread_sampling_idelta(uint64_t tnum, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback);
 
+lte_td_t lte_pe_init_thread_sampling_pcdelta(uint64_t tnum, uint64_t bp_addr, uint64_t bpcount_period, uint64_t bpcount_max, lte_pe_cbk_t callback);
+
 lte_td_t lte_pe_init_thread_sampling_icount(uint64_t tnum, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback, uint64_t wicount_period, uint64_t wicount_max, lte_pe_cbk_t wcallback); 
 
 // initiazile bp sampling for the thread specified by tnum; on error returns 0
-lte_td_t lte_pe_init_thread_sampling_bp(uint64_t tnum, uint64_t bp_addr, uint64_t bp_period, uint64_t bpcount_max, lte_pe_cbk_t callback, uint64_t wbp_addr, uint64_t wbp_period, uint64_t wbpcount_max, lte_pe_cbk_t wcallback); 
+void lte_pe_init_thread_sampling_bp(uint64_t tnum, uint64_t bp_addr, uint64_t bp_period, uint64_t bpcount_max, lte_pe_cbk_t callback, uint64_t wbp_addr, uint64_t wbp_period, uint64_t wbpcount_max, lte_pe_cbk_t wcallback); 
 
 // sets icount for the thread specified by tnum; on error returns 0
 lte_td_t lte_pe_set_thread_end(uint64_t tnum, uint64_t icount);

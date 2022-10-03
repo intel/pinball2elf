@@ -299,6 +299,8 @@ class PROBECONTROL
     PROBE_EVENT_TYPE event;
     string ecountstr;
     UINT64 ecount;
+    string evaluestr;
+    UINT64 evalue;
 
     while(true)
     {
@@ -414,6 +416,36 @@ class PROBECONTROL
               ASSERTX(0);
             }
             idelta_pair = iepair;
+          }
+          break;
+        } 
+
+        case PROBE_EVENT_PCSTART:
+        case PROBE_EVENT_PCSTOP:
+        case PROBE_EVENT_PCDELTASTOP:
+        {
+          field.clear();
+          getline(s, field, ':');
+          evaluestr = field;
+          evalue=strtol(evaluestr.c_str(),NULL,16);
+          if(pbverbose) cerr << "evaluestr " << evaluestr  << " evalue " << hex << evalue << endl;
+          field.clear();
+          getline(s, field, ':');
+          ecountstr = field;
+          ecount=atol(ecountstr.c_str());
+          if(pbverbose) cerr << "ecountstr " << ecountstr  << " ecount " << dec << ecount << endl;
+          PCEPAIR pcepair = make_pair(evalue,ecount);
+          if (event == PROBE_EVENT_PCSTART)
+          {
+            pcstart_pair = pcepair;
+          }
+          if (event == PROBE_EVENT_PCSTOP)
+          {
+            pcstop_pair = pcepair;
+          }
+          if (event == PROBE_EVENT_PCDELTASTOP)
+          {
+            pcdelta_pair = pcepair;
           }
           break;
         } 

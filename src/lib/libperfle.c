@@ -47,6 +47,8 @@ typedef struct thread_info_s {
 // as loader not necessarily fills .bss with zeroes
 __lte_static thread_info_t* s_thread = NULL;
 __lte_static thread_info_t* s_thread_alt = NULL;
+__lte_static thread_info_t* s_thread_pc = NULL;
+__lte_static thread_info_t* s_thread_pc_alt = NULL;
 __lte_static thread_info_t * s_thread_delta = NULL;
 __lte_static uint64_t s_num_threads = 0;
 __lte_static int s_blocked_signals_num = 0;
@@ -112,6 +114,20 @@ uint64_t lte_pe_get_thread_num_by_tid(pid_t tid)
    return INVALID_TNUM;
 }
 
+
+uint64_t lte_pe_get_thread_num_pc_by_tid(pid_t tid)
+{
+   if(s_thread_pc)
+   {
+      thread_info_t* p = &s_thread_pc[0];
+      thread_info_t* pend = &s_thread_pc[s_num_threads];
+      for(; p != pend; ++p)
+         if(p->tid == tid)
+            return (p - s_thread_pc);
+   }
+   return INVALID_TNUM;
+}
+
 uint64_t lte_pe_get_alt_thread_num_by_tid(pid_t tid)
 {
    if(s_thread_alt)
@@ -121,6 +137,20 @@ uint64_t lte_pe_get_alt_thread_num_by_tid(pid_t tid)
       for(; p != pend; ++p)
          if(p->tid == tid)
             return (p - s_thread_alt);
+   }
+   return INVALID_TNUM;
+}
+
+
+uint64_t lte_pe_get_alt_thread_num_pc_by_tid(pid_t tid)
+{
+   if(s_thread_pc_alt)
+   {
+      thread_info_t* p = &s_thread_pc_alt[0];
+      thread_info_t* pend = &s_thread_pc_alt[s_num_threads];
+      for(; p != pend; ++p)
+         if(p->tid == tid)
+            return (p - s_thread_pc_alt);
    }
    return INVALID_TNUM;
 }
@@ -147,6 +177,33 @@ static uint64_t lte_pe_get_alt_thread_num_by_fd(int fd)
       for(; p != pend; ++p)
          if(p->fd == fd)
             return (p - s_thread_alt);
+   }
+   return INVALID_TNUM;
+}
+
+
+static uint64_t lte_pe_get_thread_num_pc_by_fd(int fd)
+{
+   if(s_thread_pc)
+   {
+      thread_info_t* p = &s_thread_pc[0];
+      thread_info_t* pend = &s_thread_pc[s_num_threads];
+      for(; p != pend; ++p)
+         if(p->fd == fd)
+            return (p - s_thread_pc);
+   }
+   return INVALID_TNUM;
+}
+
+static uint64_t lte_pe_get_alt_thread_num_pc_by_fd(int fd)
+{
+   if(s_thread_pc_alt)
+   {
+      thread_info_t* p = &s_thread_pc_alt[0];
+      thread_info_t* pend = &s_thread_pc_alt[s_num_threads];
+      for(; p != pend; ++p)
+         if(p->fd == fd)
+            return (p - s_thread_pc_alt);
    }
    return INVALID_TNUM;
 }
@@ -235,7 +292,7 @@ static __inline__ thread_info_t* lte_pe_get_thread_info_by_tid(pid_t tid)
 
 static __inline__ thread_info_t* lte_pe_get_alt_thread_info_by_tid(pid_t tid)
 {
-   return lte_pe_get_thread_info_by_tnum(lte_pe_get_alt_thread_num_by_tid(tid));
+   return lte_pe_get_alt_thread_info_by_tnum(lte_pe_get_alt_thread_num_by_tid(tid));
 }
 
 static __inline__ thread_info_t* lte_pe_get_thread_info_by_fd(int fd)
@@ -246,6 +303,36 @@ static __inline__ thread_info_t* lte_pe_get_thread_info_by_fd(int fd)
 static __inline__ thread_info_t* lte_pe_get_alt_thread_info_by_fd(int fd)
 {
    return lte_pe_get_alt_thread_info_by_tnum(lte_pe_get_alt_thread_num_by_fd(fd));
+}
+
+static __inline__ thread_info_t* lte_pe_get_thread_info_pc_by_tnum(uint64_t tnum)
+{
+   return (tnum < s_num_threads) ? &s_thread_pc[tnum] : NULL;
+}
+
+static __inline__ thread_info_t* lte_pe_get_alt_thread_info_pc_by_tnum(uint64_t tnum)
+{
+   return (tnum < s_num_threads) ? &s_thread_pc_alt[tnum] : NULL;
+}
+
+static __inline__ thread_info_t* lte_pe_get_thread_info_pc_by_tid(pid_t tid)
+{
+   return lte_pe_get_thread_info_pc_by_tnum(lte_pe_get_thread_num_pc_by_tid(tid));
+}
+
+static __inline__ thread_info_t* lte_pe_get_alt_thread_info_pc_by_tid(pid_t tid)
+{
+   return lte_pe_get_alt_thread_info_pc_by_tnum(lte_pe_get_alt_thread_num_pc_by_tid(tid));
+}
+
+static __inline__ thread_info_t* lte_pe_get_thread_info_pc_by_fd(int fd)
+{
+   return lte_pe_get_thread_info_pc_by_tnum(lte_pe_get_thread_num_pc_by_fd(fd));
+}
+
+static __inline__ thread_info_t* lte_pe_get_alt_thread_info_pc_by_fd(int fd)
+{
+   return lte_pe_get_alt_thread_info_pc_by_tnum(lte_pe_get_alt_thread_num_pc_by_fd(fd));
 }
 
 static void lte_pe_free_threads_info()
@@ -291,6 +378,25 @@ static int lte_pe_alloc_threads_info(uint64_t num_threads)
       else
          lte_memset(s_thread_alt, 0, num_threads*sizeof(thread_info_t));
    }
+
+   if(!s_thread_pc)
+   {
+      s_thread_pc = (thread_info_t*)lte_mmap(0, num_threads*sizeof(thread_info_t),
+          PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+      if(!s_thread_pc)
+         lte_pe_error(EXIT_FAILURE);
+      else
+         lte_memset(s_thread_pc, 0, num_threads*sizeof(thread_info_t));
+   }
+   if(!s_thread_pc_alt)
+   {
+      s_thread_pc_alt = (thread_info_t*)lte_mmap(0, num_threads*sizeof(thread_info_t),
+          PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+      if(!s_thread_pc_alt)
+         lte_pe_error(EXIT_FAILURE);
+      else
+         lte_memset(s_thread_pc_alt, 0, num_threads*sizeof(thread_info_t));
+   }
    s_num_threads = num_threads;
 
    thread_info_t* p = s_thread;
@@ -333,6 +439,47 @@ static int lte_pe_alloc_threads_info(uint64_t num_threads)
       lte_pe_error(EXIT_FAILURE);
       return 1; //will now execute 
    }
+
+   thread_info_t* p_pc = s_thread_pc;
+   thread_info_t* pend_pc = s_thread_pc + num_threads;
+   thread_info_t* p_pc_alt = s_thread_pc_alt;
+   thread_info_t* pend_pc_alt = s_thread_pc_alt + num_threads;
+   if(p_pc && p_pc_alt)
+   {
+      for(; (p_pc != pend_pc) && (p_pc_alt != pend_pc_alt); ++p_pc,++p_pc_alt)
+      {
+         if(!p_pc->stack)
+         {
+            p_pc->stack = lte_mmap(0, SIGSTKSZ, PROT_READ|PROT_WRITE|PROT_EXEC,MAP_PRIVATE|MAP_ANONYMOUS|MAP_GROWSDOWN, -1, 0);
+            if(!p_pc->stack)
+               lte_pe_error(EXIT_FAILURE);
+            p_pc->stack_size = SIGSTKSZ;
+         }
+         p_pc->fd = -1;
+         p_pc->count = 0;
+         p_pc->count_period = 0;
+         p_pc->count_max = 0;
+         p_pc->samples = 0;
+
+         if(!p_pc_alt->stack)
+         {
+            p_pc_alt->stack = lte_mmap(0, SIGSTKSZ, PROT_READ|PROT_WRITE|PROT_EXEC,MAP_PRIVATE|MAP_ANONYMOUS|MAP_GROWSDOWN, -1, 0);
+            if(!p_pc_alt->stack)
+               lte_pe_error(EXIT_FAILURE);
+            p_pc_alt->stack_size = SIGSTKSZ;
+         }
+         p_pc_alt->fd = -1;
+         p_pc_alt->count = 0;
+         p_pc_alt->count_period = 0;
+         p_pc_alt->count_max = 0;
+         p_pc_alt->samples = 0;
+      }
+   }
+   else
+   {
+      lte_pe_error(EXIT_FAILURE);
+      return 1; //will now execute 
+   }
    return 0; // success
 }
 
@@ -354,14 +501,12 @@ static void lte_pe_sample(thread_info_t* tinfo, int signum, siginfo_t* siginfo, 
    }
 }
 
-static void lte_pe_sighandler(int signum, siginfo_t* siginfo, void* ucontext)
+static void lte_pe_sighandler_delta(int signum, siginfo_t* siginfo, void* ucontext)
 {
-   if(signum == SIGIO)
+   if(signum == SIGUSR2)
    {
-#if 0
       if(siginfo->si_code != POLL_HUP)
          lte_pe_error(EXIT_FAILURE);
-#endif
 
       lte_ioctl(siginfo->si_fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
 
@@ -374,53 +519,14 @@ static void lte_pe_sighandler(int signum, siginfo_t* siginfo, void* ucontext)
       {
          lte_pe_sample(tinfo_sig, signum, siginfo, ucontext);
 
-         if(tinfo_tid == tinfo_sig || !tinfo_tid)
-         {
-            if(tinfo_sig->count >= tinfo_sig->count_max || tinfo_sig->count_period >= tinfo_sig->count_max)
+            if(tinfo_tid && tinfo_tid->fd != siginfo->si_fd)
             {
-               lte_exit(EXIT_SUCCESS);
+               lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
             }
-            lte_ioctl(tinfo_sig->fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
-            lte_ioctl(tinfo_sig->fd, PERF_EVENT_IOC_REFRESH, 1);
             return;
          }
-      }
-
       if(tinfo_tid && tinfo_tid->fd != siginfo->si_fd)
          lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
-   }
-   else if(signum == s_sig_overflow) // if s_sig_overflow == SIGIO, it will be handled by the first if-then
-   {
-      thread_info_t* tinfo_tid = lte_pe_get_thread_info_by_tid(lte_gettid());
-      if(tinfo_tid)
-      {
-         lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
-         lte_pe_sample(tinfo_tid, signum, siginfo, ucontext);
-         if(tinfo_tid->count >= tinfo_tid->count_max || tinfo_tid->count_period >= tinfo_tid->count_max)
-         {
-            lte_exit(EXIT_SUCCESS);
-         }
-         lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
-         lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_REFRESH, 1);
-      }
-   }
-   else
-   {
-      int* s = s_blocked_signals;
-      int* send = s_blocked_signals + s_blocked_signals_num;
-      for(; s != send; ++s)
-      {
-         if(*s != signum)
-            continue;
-
-         thread_info_t* tinfo_tid = lte_pe_get_thread_info_by_tid(lte_gettid());
-         if(tinfo_tid)
-         {
-            lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
-            lte_pe_sample(tinfo_tid, signum, siginfo, ucontext);
-         }
-         lte_exit(EXIT_SUCCESS); // we need EXIT_SUCCESS for monitor thread (otherwise SIDCHLD won't come?)
-      }
    }
 }
 
@@ -524,6 +630,137 @@ static void lte_pe_sighandler_alt(int signum, siginfo_t* siginfo, void* ucontext
    }
 }
 
+#if 0
+static void lte_pe_sighandler_main_pc(int signum, siginfo_t* siginfo, void* ucontext)
+{
+   if(signum == SIGIO)
+   {
+#ifndef PINCRT
+      if(siginfo->si_code != POLL_HUP)
+         lte_pe_error(EXIT_FAILURE);
+#endif // not PINCRT
+
+      lte_ioctl(siginfo->si_fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
+
+      thread_info_t* tinfo_tid = lte_pe_get_thread_info_pc_by_tid(lte_gettid());
+      if(tinfo_tid && tinfo_tid->fd != siginfo->si_fd)
+         lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
+
+      thread_info_t* tinfo_sig = lte_pe_get_thread_info_pc_by_fd(siginfo->si_fd);
+      if(tinfo_sig)
+      {
+         lte_pe_sample(tinfo_sig, signum, siginfo, ucontext);
+
+         if(tinfo_tid == tinfo_sig || !tinfo_tid)
+         {
+            if(tinfo_sig->count >= tinfo_sig->count_max || tinfo_sig->count_period >= tinfo_sig->count_max)
+            {
+               lte_exit(EXIT_SUCCESS);
+            }
+            lte_ioctl(tinfo_sig->fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
+            lte_ioctl(tinfo_sig->fd, PERF_EVENT_IOC_REFRESH, 1);
+            return;
+         }
+      }
+
+      if(tinfo_tid && tinfo_tid->fd != siginfo->si_fd)
+         lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
+   }
+   else if(signum == s_sig_overflow) // if s_sig_overflow == SIGIO, it will be handled by the first if-then
+   {
+      thread_info_t* tinfo_tid = lte_pe_get_thread_info_pc_by_tid(lte_gettid());
+      if(tinfo_tid)
+      {
+         lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
+         lte_pe_sample(tinfo_tid, signum, siginfo, ucontext);
+         if(tinfo_tid->count >= tinfo_tid->count_max || tinfo_tid->count_period >= tinfo_tid->count_max)
+         {
+            lte_exit(EXIT_SUCCESS);
+         }
+         lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
+         lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_REFRESH, 1);
+      }
+
+   }
+   else
+   {
+      int* s = s_blocked_signals;
+      int* send = s_blocked_signals + s_blocked_signals_num;
+      for(; s != send; ++s)
+      {
+         if(*s != signum)
+            continue;
+
+         thread_info_t* tinfo_tid = lte_pe_get_thread_info_pc_by_tid(lte_gettid());
+         if(tinfo_tid)
+         {
+            lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
+            lte_pe_sample(tinfo_tid, signum, siginfo, ucontext);
+         }
+         lte_exit(EXIT_SUCCESS); // we need EXIT_SUCCESS for monitor thread (otherwise SIDCHLD won't come?)
+      }
+   }
+}
+#endif
+
+static void lte_pe_sighandler_main_pc(int signum, siginfo_t* siginfo, void* ucontext)
+{
+   if(signum == SIGUSR2)
+   {
+      if(siginfo->si_code != POLL_HUP)
+         lte_pe_error(EXIT_FAILURE);
+
+      lte_ioctl(siginfo->si_fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
+
+      thread_info_t* tinfo_tid = lte_pe_get_thread_info_pc_by_tid(lte_gettid());
+      if(tinfo_tid && tinfo_tid->fd != siginfo->si_fd)
+         lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
+
+      thread_info_t* tinfo_sig = lte_pe_get_thread_info_pc_by_fd(siginfo->si_fd);
+      if(tinfo_sig)
+      {
+         lte_pe_sample(tinfo_sig, signum, siginfo, ucontext);
+
+            if(tinfo_tid && tinfo_tid->fd != siginfo->si_fd)
+            {
+               lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
+            }
+            return;
+         }
+      if(tinfo_tid && tinfo_tid->fd != siginfo->si_fd)
+         lte_ioctl(tinfo_tid->fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
+   }
+}
+
+static void lte_pe_sighandler_alt_pc(int signum, siginfo_t* siginfo, void* ucontext)
+{
+   if(signum == SIGUSR1)
+   {
+      if(siginfo->si_code != POLL_HUP)
+         lte_pe_error(EXIT_FAILURE);
+
+      lte_ioctl(siginfo->si_fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
+
+      thread_info_t* tinfo_alt_tid = lte_pe_get_alt_thread_info_pc_by_tid(lte_gettid());
+      if(tinfo_alt_tid && tinfo_alt_tid->fd != siginfo->si_fd)
+         lte_ioctl(tinfo_alt_tid->fd, PERF_EVENT_IOC_DISABLE, PERF_IOC_FLAG_GROUP);
+
+      thread_info_t* tinfo_sig = lte_pe_get_alt_thread_info_pc_by_fd(siginfo->si_fd);
+      if(tinfo_sig)
+      {
+         lte_pe_sample(tinfo_sig, signum, siginfo, ucontext);
+
+            if(tinfo_alt_tid && tinfo_alt_tid->fd != siginfo->si_fd)
+            {
+               lte_ioctl(tinfo_alt_tid->fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
+            }
+            return;
+         }
+      if(tinfo_alt_tid && tinfo_alt_tid->fd != siginfo->si_fd)
+         lte_ioctl(tinfo_alt_tid->fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
+   }
+}
+
 extern int out_fd[];
 __lte_static char s_sighandler[] = "sighandler ";
 __lte_static char s_tid[] = "tid: ";
@@ -601,25 +838,16 @@ static lte_td_t lte_pe_set_sampling_cbk(uint64_t tnum, int cpu, pid_t pid, uint6
 
    struct sigaction sa;
    lte_memset(&sa, 0, sizeof(sa));
-   sa.sa_sigaction = &lte_pe_sighandler;
+   sa.sa_sigaction = &lte_pe_sighandler_delta;
    sa.sa_flags = SA_SIGINFO | sa_onstack;
    #ifdef LIBPERFLE_SAMASK
    sa.sa_mask = s_sa_mask;
    #endif
 
-   int sig = s_sig_overflow;
+   int sig = SIGUSR2;
 
    if(lte_sigaction(sig, &sa, NULL) < 0)
       lte_pe_error(EXIT_FAILURE);
-
-   if(s_blocked_signals_num)
-   {
-      int* signum = s_blocked_signals;
-      int* sigend = s_blocked_signals + s_blocked_signals_num;
-      for(; signum != sigend; ++signum)
-          if(lte_sigaction(*signum, &sa, NULL) < 0)
-            lte_pe_error(EXIT_FAILURE);
-   }
 
    lte_td_t td = NULL;
    int fd = lte_pe_open_perf_event(pid, cpu, -1, PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS, icount_period, 0 /*isglobal*/);
@@ -637,6 +865,8 @@ static lte_td_t lte_pe_set_sampling_cbk(uint64_t tnum, int cpu, pid_t pid, uint6
       lte_fcntl(fd, F_SETOWN_EX, &foex);
       #endif
       lte_ioctl(fd, PERF_EVENT_IOC_RESET, 0);
+      lte_pe_enable(fd);
+      lte_ioctl(fd, PERF_EVENT_IOC_REFRESH, 1);
       td = tinfo;
    }
 
@@ -646,6 +876,68 @@ static lte_td_t lte_pe_set_sampling_cbk(uint64_t tnum, int cpu, pid_t pid, uint6
    tinfo->fd = fd;
 
    return td;
+}
+
+static lte_td_t lte_pe_set_sampling_pc_cbk(uint64_t tnum, int cpu, pid_t pid, uint64_t pc_addr, uint64_t pccount_period, uint64_t pccount_max, lte_pe_cbk_t callback, thread_info_t * tinfo)
+{
+   if(!tinfo)
+      return NULL;
+   if(pccount_period > pccount_max)
+      pccount_period = pccount_max;
+   if(!pccount_period)
+      return NULL;
+
+   stack_t ss = {
+      .ss_sp = tinfo->stack,
+      .ss_flags = 0,
+      .ss_size = tinfo->stack_size
+   };
+   int sa_onstack = 0;
+   if(ss.ss_sp && !lte_sigaltstack(&ss, 0))
+      sa_onstack = SA_ONSTACK;
+
+   tinfo->callback = callback;
+
+   struct sigaction sa;
+   lte_memset(&sa, 0, sizeof(sa));
+   sa.sa_sigaction = &lte_pe_sighandler_delta;
+   sa.sa_flags = SA_SIGINFO | sa_onstack;
+   #ifdef LIBPERFLE_SAMASK
+   sa.sa_mask = s_sa_mask;
+   #endif
+
+   int sig = SIGUSR2;
+
+   if(lte_sigaction(sig, &sa, NULL) < 0)
+      lte_pe_error(EXIT_FAILURE);
+
+   lte_td_t td = NULL;
+   int fd = lte_pe_open_perf_bpevent(pid, cpu, -1, PERF_TYPE_BREAKPOINT, pc_addr, pccount_period, 0 /*isglobal*/);
+   if(fd != -1)
+   {
+      lte_fcntl(fd, F_SETFL, O_NONBLOCK|O_ASYNC);
+      lte_fcntl(fd, F_SETSIG, sig);
+      #if 0
+      lte_fcntl(fd, F_SETOWN, lte_gettid());
+      #else
+      // since Linux 2.6.32
+      struct f_owner_ex foex;
+      foex.type = F_OWNER_TID;
+      foex.pid = lte_gettid();
+      lte_fcntl(fd, F_SETOWN_EX, &foex);
+      #endif
+      lte_ioctl(fd, PERF_EVENT_IOC_RESET, 0);
+      lte_pe_enable(fd);
+      lte_ioctl(fd, PERF_EVENT_IOC_REFRESH, 1);
+      td = tinfo;
+   }
+
+   tinfo->tid = lte_gettid();
+   tinfo->count_period = pccount_period;
+   tinfo->count_max = pccount_max;
+   tinfo->fd = fd;
+
+   return tinfo;
 }
 
 
@@ -785,54 +1077,45 @@ lte_td_t lte_pe_set_sampling_icount_cbk(uint64_t tnum, int cpu, pid_t pid, uint6
    return td;
 }
 
-static lte_td_t lte_pe_set_sampling_bp_cbk(uint64_t tnum, int cpu, pid_t pid, uint64_t bp_addr, uint64_t bpcount_period, uint64_t bpcount_max, lte_pe_cbk_t callback, uint64_t wbp_addr, uint64_t wbpcount_period, uint64_t wbpcount_max, lte_pe_cbk_t wcallback)
+static void lte_pe_set_sampling_bp_cbk(uint64_t tnum, int cpu, pid_t pid, uint64_t bp_addr, uint64_t bpcount_period, uint64_t bpcount_max, lte_pe_cbk_t callback, uint64_t wbp_addr, uint64_t wbpcount_period, uint64_t wbpcount_max, lte_pe_cbk_t wcallback)
 {
-   thread_info_t* tinfo = lte_pe_get_thread_info_by_tnum(tnum);
+   thread_info_t* tinfo = lte_pe_get_thread_info_pc_by_tnum(tnum);
+   int group_fd = -1;
 
    if(!tinfo)
-      return NULL;
+      return;
    if(bpcount_period > bpcount_max)
       bpcount_period = bpcount_max;
-   if(!bpcount_period)
-      return NULL;
-
-   stack_t ss = {
+   if(bp_addr && bpcount_period)
+   {
+    stack_t ss = {
       .ss_sp = tinfo->stack,
       .ss_flags = 0,
       .ss_size = tinfo->stack_size
-   };
-   int sa_onstack = 0;
-   if(ss.ss_sp && !lte_sigaltstack(&ss, 0))
+    };
+    int sa_onstack = 0;
+    if(ss.ss_sp && !lte_sigaltstack(&ss, 0))
       sa_onstack = SA_ONSTACK;
 
 
-   struct sigaction sa;
-   lte_memset(&sa, 0, sizeof(sa));
-   sa.sa_sigaction = &lte_pe_sighandler_main;
-   sa.sa_flags = SA_SIGINFO | sa_onstack;
+    struct sigaction sa;
+    lte_memset(&sa, 0, sizeof(sa));
+    sa.sa_sigaction = &lte_pe_sighandler_main_pc;
+    sa.sa_flags = SA_SIGINFO | sa_onstack;
    #ifdef LIBPERFLE_SAMASK
    sa.sa_mask = s_sa_mask;
    #endif
 
-   int sig = s_sig_overflow;
+    //int sig = s_sig_overflow;
+    int sig = SIGUSR2;
 
-   if(lte_sigaction(sig, &sa, NULL) < 0)
+    if(lte_sigaction(sig, &sa, NULL) < 0)
       lte_pe_error(EXIT_FAILURE);
 
-   if(s_blocked_signals_num)
-   {
-      int* signum = s_blocked_signals;
-      int* sigend = s_blocked_signals + s_blocked_signals_num;
-      for(; signum != sigend; ++signum)
-          if(lte_sigaction(*signum, &sa, NULL) < 0)
-            lte_pe_error(EXIT_FAILURE);
-   }
-
-   tinfo->callback = callback;
-   lte_td_t td = NULL;
-   int fd = lte_pe_open_perf_bpevent(pid, cpu, -1, PERF_TYPE_BREAKPOINT, bp_addr, bpcount_period, 0 /*isglobal*/);
-   if(fd >= 0)
-   {
+    tinfo->callback = callback;
+    int fd = lte_pe_open_perf_bpevent(pid, cpu, group_fd, PERF_TYPE_BREAKPOINT, bp_addr, bpcount_period, 0 /*isglobal*/);
+    if(fd >= 0)
+    {
       lte_fcntl(fd, F_SETFL, O_NONBLOCK|O_ASYNC);
       lte_fcntl(fd, F_SETSIG, sig);
       #if 0
@@ -845,25 +1128,27 @@ static lte_td_t lte_pe_set_sampling_bp_cbk(uint64_t tnum, int cpu, pid_t pid, ui
       lte_fcntl(fd, F_SETOWN_EX, &foex);
       #endif
       lte_ioctl(fd, PERF_EVENT_IOC_RESET, 0);
-      td = tinfo;
+      lte_pe_enable(fd);
+      lte_ioctl(fd, PERF_EVENT_IOC_REFRESH, 1);
+    }
+    else
+    {
+      lte_write(2, "ERROR:perf_event_open() failed\n", sizeof("ERROR:perf_event_open() failed\n")-1);
+      lte_pe_error(EXIT_FAILURE);
+    }
+    tinfo->tid = lte_gettid();
+    tinfo->count_period = bpcount_period;
+    tinfo->count = 0;
+    tinfo->count_max = bpcount_max;
+    tinfo->fd = fd;
    }
-   else
-   {
-     lte_write(2, "ERROR:perf_event_open() failed\n", sizeof("ERROR:perf_event_open() failed\n")-1);
-     lte_pe_error(EXIT_FAILURE);
-   }
-   tinfo->tid = lte_gettid();
-   tinfo->count_period = bpcount_period;
-   tinfo->count = 0;
-   tinfo->count_max = bpcount_max;
-   tinfo->fd = fd;
 
-   if(wbp_addr)
+   if(wbp_addr && wbpcount_period)
    {
-    thread_info_t* tinfo_alt = lte_pe_get_alt_thread_info_by_tnum(tnum);
+    thread_info_t* tinfo_alt = lte_pe_get_alt_thread_info_pc_by_tnum(tnum);
 
     tinfo_alt->callback = wcallback;
-    int wfd = lte_pe_open_perf_bpevent(pid, cpu, -1, PERF_TYPE_BREAKPOINT, wbp_addr, wbpcount_period, 0 /*isglobal*/);
+    int wfd = lte_pe_open_perf_bpevent(pid, cpu, group_fd, PERF_TYPE_BREAKPOINT, wbp_addr, wbpcount_period, 0 /*isglobal*/);
     if(wfd != -1)
     {
       stack_t wss = {
@@ -877,7 +1162,7 @@ static lte_td_t lte_pe_set_sampling_bp_cbk(uint64_t tnum, int cpu, pid_t pid, ui
 
       struct sigaction wsa;
       lte_memset(&wsa, 0, sizeof(wsa));
-      wsa.sa_sigaction = &lte_pe_sighandler_alt;
+      wsa.sa_sigaction = &lte_pe_sighandler_alt_pc;
       wsa.sa_flags = SA_SIGINFO | wsa_onstack;
    #ifdef LIBPERFLE_SAMASK
    wsa.sa_mask = s_sa_mask;
@@ -914,7 +1199,7 @@ static lte_td_t lte_pe_set_sampling_bp_cbk(uint64_t tnum, int cpu, pid_t pid, ui
     tinfo_alt->count_max = wbpcount_max;
     tinfo_alt->fd = wfd;
    }
-   return td;
+   return;
 }
 
 static int __lte_pe_init(uint64_t num_threads, const void* sigset)
@@ -1000,14 +1285,29 @@ lte_td_t lte_pe_init_thread_sampling_idelta(uint64_t tnum, uint64_t icount_perio
    return lte_pe_set_sampling_cbk(tnum, -1, 0/*lte_gettid()*/, icount_period, icount_max, callback, s_thread_delta);
 }
 
+
+lte_td_t lte_pe_init_thread_sampling_pcdelta(uint64_t tnum, uint64_t bp_addr, uint64_t bpcount_period, uint64_t bpcount_max, lte_pe_cbk_t callback)
+{
+   if (tnum != 0) // only one thread, tnum==0, supported currently
+    lte_pe_error(EXIT_FAILURE);
+   s_thread_delta =  (thread_info_t *)lte_mmap(0, 
+          sizeof(thread_info_t),
+          PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+   if(!s_thread_delta)
+    lte_pe_error(EXIT_FAILURE);
+   else
+    lte_memset(s_thread_delta, 0, sizeof(thread_info_t));
+   return lte_pe_set_sampling_pc_cbk(tnum, -1, 0/*lte_gettid()*/, bp_addr, bpcount_period, bpcount_max, callback, s_thread_delta);
+}
+
 lte_td_t lte_pe_init_thread_sampling_icount(uint64_t tnum, uint64_t icount_period, uint64_t icount_max, lte_pe_cbk_t callback, uint64_t wicount_period, uint64_t wicount_max, lte_pe_cbk_t wcallback)
 {
    return lte_pe_set_sampling_icount_cbk(tnum, -1, 0/*lte_gettid()*/, icount_period, icount_max, callback, wicount_period, wicount_max, wcallback);
 }
 
-lte_td_t lte_pe_init_thread_sampling_bp(uint64_t tnum, uint64_t bp_addr, uint64_t bp_period, uint64_t bpcount_max, lte_pe_cbk_t callback, uint64_t wbp_addr, uint64_t wbp_period, uint64_t wbpcount_max, lte_pe_cbk_t wcallback)
+void lte_pe_init_thread_sampling_bp(uint64_t tnum, uint64_t bp_addr, uint64_t bp_period, uint64_t bpcount_max, lte_pe_cbk_t callback, uint64_t wbp_addr, uint64_t wbp_period, uint64_t wbpcount_max, lte_pe_cbk_t wcallback)
 {
-   return lte_pe_set_sampling_bp_cbk(tnum, -1, 0/*lte_gettid()*/,bp_addr, bp_period, bpcount_max, callback, wbp_addr, wbp_period, wbpcount_max, wcallback);
+   lte_pe_set_sampling_bp_cbk(tnum, -1, 0/*lte_gettid()*/,bp_addr, bp_period, bpcount_max, callback, wbp_addr, wbp_period, wbpcount_max, wcallback);
 }
 
 int lte_pe_open_thread_perf_event(lte_td_t td, uint32_t pe_type, uint64_t pe_config, uint8_t isglobal)
