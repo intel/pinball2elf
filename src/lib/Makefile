@@ -9,8 +9,8 @@ ARFLAGS=cr
 
 CC=gcc
 ifeq ($(DEBUG),)
-#CFLAGS=-O3 -fno-tree-loop-distribute-patterns
-CFLAGS=-fPIC -O1 -fno-tree-loop-distribute-patterns -fno-stack-protector
+#CFLAGS=-fPIC -O3 -fno-tree-loop-distribute-patterns
+CFLAGS=-fPIC -O2 -fno-tree-loop-distribute-patterns -fno-stack-protector
 else
 CFLAGS=-fPIC -O0 -g -fno-stack-protector
 endif
