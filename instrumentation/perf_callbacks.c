@@ -9,6 +9,7 @@
 
 
 #define PERF_TMAX 32
+#define MAXICOUNT 100000000000000
 typedef int perfevent_t;
 __lte_static char s_pid[] = " pid: ";
 __lte_static char s_tid[] = " tid: ";
@@ -174,7 +175,6 @@ void simendpccount_callback(lte_td_t td, int signum, siginfo_t* info, void* p)
         lte_write(my_out_fd, "Thread end: TSC ", lte_strlen("Thread end: TSC ")-1); 
         lte_diprintfe(my_out_fd, rdtsc(), '\n');
         lte_fsync(my_out_fd);
-   lte_exit(0);
 }
 
 
@@ -209,7 +209,6 @@ void simendicount_callback(lte_td_t td, int signum, siginfo_t* info, void* p)
         lte_write(my_out_fd, "Thread end: TSC ", lte_strlen("Thread end: TSC ")-1); 
         lte_diprintfe(my_out_fd, rdtsc(), '\n');
         lte_fsync(my_out_fd);
-   lte_exit(0);
 }
 
 void warmupendicount_callback(lte_td_t td, int signum, siginfo_t* info, void* p)
@@ -248,8 +247,10 @@ lte_td_t elfie_on_thread_start(uint64_t tnum, void* context, uint64_t icount)
     int flag = (wpccount_arr[tnum]!=0 && (use_warmup != 0));
     if( flag )
     {
+      // Use an icounter group leader
+      td = lte_pe_init_thread_sampling_icount(0, MAXICOUNT, MAXICOUNT, &simendicount_callback, 0, 0, NULL);
       if(verbose)lte_write(2, "Using warmup:\n", lte_strlen("Using warmup:\n")-1); 
-      td = lte_pe_init_thread_sampling_bp(tnum, pcaddr_arr[tnum], pccount_arr[tnum], pccount_arr[tnum], &simendpccount_callback, wpcaddr_arr[tnum], wpccount_arr[tnum], wpccount_arr[tnum], &warmupendpccount_callback);
+      lte_pe_init_thread_sampling_bp(tnum, pcaddr_arr[tnum], pccount_arr[tnum], pccount_arr[tnum], &simendpccount_callback, wpcaddr_arr[tnum], wpccount_arr[tnum], wpccount_arr[tnum], &warmupendpccount_callback);
       if(verbose)
       {
         lte_write(2, " Warmup-end PC 0x", lte_strlen(" Warmup-end PC 0x")-1); 
@@ -265,7 +266,9 @@ lte_td_t elfie_on_thread_start(uint64_t tnum, void* context, uint64_t icount)
     else
     {
       if(verbose)lte_write(2, "NOT using warmup:\n", lte_strlen("NOT using warmup:\n")-1); 
-      td = lte_pe_init_thread_sampling_bp(tnum, pcaddr_arr[tnum], pccount_arr[tnum], pccount_arr[tnum], &simendpccount_callback, 0, 0, 0, NULL);
+      // Use an icounter group leader
+      td = lte_pe_init_thread_sampling_icount(0, MAXICOUNT, MAXICOUNT, &simendicount_callback, 0, 0, NULL);
+      lte_pe_init_thread_sampling_bp(tnum, pcaddr_arr[tnum], pccount_arr[tnum], pccount_arr[tnum], &simendpccount_callback, 0, 0, 0, NULL);
       if(verbose)
       {
         lte_write(2, " End PC 0x", lte_strlen(" End PC 0x")-1); 

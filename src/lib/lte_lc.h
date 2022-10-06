@@ -26,7 +26,7 @@ END_LEGAL */
 #include <sys/mman.h>
 #include <linux/perf_event.h>
 #ifdef PINCRT
-#include "__sigset_t.h"
+//#include "__sigset_t.h"
 #endif
 
 #ifdef __cplusplus
