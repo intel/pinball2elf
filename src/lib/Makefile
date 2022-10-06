@@ -10,13 +10,14 @@ ARFLAGS=cr
 CC=gcc
 ifeq ($(DEBUG),)
 #CFLAGS=-O3 -fno-tree-loop-distribute-patterns
-CFLAGS=-O1 -fno-tree-loop-distribute-patterns -fno-stack-protector
+CFLAGS=-fPIC -O1 -fno-tree-loop-distribute-patterns -fno-stack-protector
 else
-CFLAGS=-O0 -g -fno-stack-protector
+CFLAGS=-fPIC -O0 -g -fno-stack-protector
 endif
 CFLAGS+=-I. -mcmodel=large -static -fno-zero-initialized-in-bss -fno-stack-protector
 ifneq ($(PINCRT),)
-CFLAGS += -DPINCRT -I/usr/include/x86_64-linux-gnu/bits/types/
+#CFLAGS += -DPINCRT -I/usr/include/x86_64-linux-gnu/bits/types/
+CFLAGS += -DPINCRT
 endif
 
 
