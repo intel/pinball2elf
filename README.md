@@ -182,23 +182,24 @@ User-level checkpoints known as *pinballs* are input to the *pinbll2elf* tool. T
 ### Creating a *fat* pinball
  (Assuming 'bash' shell)
 ```
-  export PIN_ROOT=<absolute path to the PinPlay kit>
+  export SDE_BUILD_KIT=<absolute path to the SDE kit (version 9.0 or higher>
 
   export LD_BIND_NOW=1 #to load any application dynamic libraries early
 
-  $PIN_ROOT/pin -t $PIN_ROOT/extras/pinplay/bin/intel64/pinplay-driver.so -log -log:fat -log:mt -log:compressed bzip2 -log:basename pinball/foo <ROI specification> -- <application arguments>
+  $SDE_BUILD_KIT/sde -log -log:fat -log:mt -log:compressed bzip2 -log:basename pinball/foo <ROI specification> -- <application arguments>
 ```
 ### Test the *fat* pinball with *injection-less replay*
 This step makes sure the pinball can be replayed *without injections* of any  system call side-effects.
 
 ```
-$PIN_ROOT/pin -t $PIN_ROOT/extras/pinplay/bin/intel64/pinplay-driver.so -replay -replay:addr_trans -replay:inection 0  -replay:basename pinball/foo -- $PIN_ROOT/extras/pinplay/bin/intel64/nullapp
+$SDE_BUILD_KIT/sde -replay -replay:addr_trans -replay:injection 0  -replay:basename pinball/foo -- $SDE_BUILD_KIT/intel64/nullapp
 ```
 If the ROI does any file inpout, this replay step may fail. You will need to extract from the pinball the necessary OS state that the ROI uses.
 
-### (Optionl) Create SYSSTATE directory for the pinball
+### (Optional) Create SYSSTATE directory for the pinball
 * Build the pintool pinball-sysstate.so
 ```
+    setenv SDE_BUILD_KIT to point to SDE version 9.0 or higher
     cd *pinball2elf-directory*
 
     cd pintool/SYSSTATE
@@ -206,11 +207,11 @@ If the ROI does any file inpout, this replay step may fail. You will need to ext
     make
 ```
 
- This will create *$PIN_ROOT/extras/pinplay/bin/intel64/pinball-sysstate.so*.
+ This will create *$SDE_BUILD_KIT/intel64/sde-pinball-sysstate.so*.
 
 #### Create SYSSTATE for the pinball
 ```
- $PIN_ROOT/pin -t $PIN_ROOT/extras/pinplay/bin/intel64/pinball-sysstate.so -replay -replay:basename pinball.st/log_0 -sysstate:out pinball.st/log_0 -- $PIN_ROOT/extras/pinplay/bin/intel64/nullapp 
+ $SDE_BUILD_KIT/sde64 -t64 $SDE_BUILD_KIT/intel64/sde-pinball-sysstate.so -replay -replay:basename pinball.st/log_0 -sysstate:out pinball.st/log_0 -- $SDE_BUILD_KIT/intel64/nullapp 
 Will produce sysstate in pinball.st/log_0.sysstate
 Producer pinball.st/log_0
 Hello world 1
@@ -222,7 +223,8 @@ pinball.st/log_0.sysstate/
     └── FD_1
 ```
 #### Known issue
-  * Use of "-replay:addr\_trans" may cause some sysstate corruption. You may try skipping "-replay:addr\_trans" in those cases and instead try "pin -xyzzy -reserve\_memory pinball.address ..."
+  *  During multi-threaded pinball replay, an extra monitoring thread is created to detect 'deadlocks' hence tools relying on thread count may get confused.
+ Adding "-replay:deadlock_timeout 0" during replay prevents the creation of the extra monitoring thread.
 
 #### Micro-architecture dependance of pinballs and ELFies
 
@@ -233,8 +235,9 @@ pinball.st/log_0.sysstate/
 * The binary used to generate a pinball is compiled for a specific micro-architecture. When creating a pinball using SDE, make sure to use the right  micro-architecture flag (e.g. *sde -skx* for a binary compiled for Skylake server) to embedd the right register state in the pinball and hence in the corresponding ELFie. This is important to preserve the performance characteristics of the original binary.
 
 ### (Optional) warmup specification: Create  *event_icount.tid.txt* files for pinball
-* Build the pintool pinball-sysstate.so
+* Build the sde/pintool event_counter.so
 ```
+    setenv SDE_BUILD_KIT to point to SDE version 9.0 or higher
     cd *pinball2elf-directory*
 
     cd pintool/EventCounter
@@ -242,12 +245,12 @@ pinball.st/log_0.sysstate/
     make
 ```
 
- This will create *$PIN_ROOT/extras/pinplay/bin/intel64/event_counter.so*.
+ This will create *$SDE_BUILD_KIT/intel64/sde-event-counter.so*
 #### Create warmup/simulation specification for the pinball
-* warmup ends/simulation starts at icount 3000 : -pinplay:control start:icount:3000:global
-* simulation ends at icount 3500 : -pinplay:control stop:icount:3500:global
+* warmup ends/simulation starts at icount 3000 : -control start:icount:3000:global
+* simulation ends at icount 3500 : -control stop:icount:3500:global
 ```
-$PIN_ROOT/pin -t $PIN_ROOT/extras/pinplay/bin/intel64/event_counter.so -thread_count 1 -prefix pinball.st/log_0 -pinplay:control start:icount:3000:global -pinplay:control stop:icount:3500:global -replay -replay:addr_trans -replay:basename pinball.st/log_0 -- $PIN_ROOT/extras/pinplay/bin/intel64/nullapp
+$SDE_BUILD_KIT/sde64 -t64 $SDE_BUILD_KIT/intel64/sde-event-counter.so -thread_count 1 -prefix pinball.st/log_0 -control start:icount:3000:global -control stop:icount:3500:global -replay -replay:addr_trans -replay:basename pinball.st/log_0 -- $SDE_BUILD_KIT/intel64/nullapp
 Hello world 1
  global icount 2998 Sim-Start
  global icount 3496 Sim-End
@@ -265,7 +268,7 @@ Fini  tid: 0 icount 3922
 #### Example of PC+count in warmup/simulation specification
 * Specify warmup/simulation end using PC+count
 
- -pinplay:control start:address:0x000814187:count84738:global -pinplay:control stop:address:0x0009decb1:count34069:global
+ -control start:address:0x000814187:count84738:global -control stop:address:0x0009decb1:count34069:global
 
 * Also monitor warmup-end and simulation-end PCs
 
@@ -273,7 +276,7 @@ Fini  tid: 0 icount 3922
 
 ```
 RPB=<an 8-threaded pinball with known warmup-end/simulation end PC+count values>
-$PIN_ROOT/pin -t $PIN_ROOT/extras/dcfg/bin/intel64/global_event_icounter.so -thread_count 8  -prefix $RPB  -watch_addr 0x000814187 -watch_addr 0x0009decb1  -pinplay:control start:address:0x000814187:count84738:global -pinplay:control stop:address:0x0009decb1:count34069:global -replay -replay:addr_trans -replay:basename $RPB -- $PIN_ROOT/extras/pinplay/bin/intel64/nullapp
+$SDE_BUILD_KIT/sde64 -t $SDE_BUILD_KIT/sde-event-counter.so -thread_count 8  -prefix $RPB  -watch_addr 0x000814187 -watch_addr 0x0009decb1  -control start:address:0x000814187:count84738:global -control stop:address:0x0009decb1:count34069:global -replay -replay:addr_trans -xyzzy  -replay:deadlock_timeout 0 -replay:basename $RPB -- $SDE_BUILD_KIT/intel64/nullapp
 
 Creates 8 $RPB.event_icount.tid.txt files: one for each thread
 Example event_icount file:

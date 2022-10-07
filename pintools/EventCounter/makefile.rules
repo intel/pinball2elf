@@ -1,4 +1,9 @@
 ##############################################################
+# 
+# Copyright (C) 2021-2021 Intel Corporation.
+# SPDX-License-Identifier: MIT
+# 
+##############################################################
 #
 # This file includes all the test targets as well as all the
 # non-default build rules and test recipes.
@@ -12,80 +17,17 @@
 #
 ##############################################################
 
+all:build
+
 ###### Place all generic definitions here ######
 
-PIN_ROOT?=$(shell pwd | sed '/extras.*/s///g')
+# Define the SDE example pin tools to build
+PB2ELF := $(PINBALL2ELF)
+DCFG := ../Profiler/DCFG/
+SDE_TOOLS := 
+PINPLAY_TOOLS := event_counter
 
-PINPLAY_HOME=$(PIN_ROOT)/extras/pinplay/
-DCFG_HOME=$(PIN_ROOT)/extras/dcfg/
-
-OPT?=-O2
-OBJEXT = o
-
-PINPLAY_INCLUDE_HOME=$(PINPLAY_HOME)/include
-DCFG_INCLUDE_HOME=$(DCFG_HOME)/include
-PINPLAY_LIB_HOME=$(PINPLAY_HOME)/lib/$(TARGET)
-DCFG_LIB_HOME=$(DCFG_HOME)/lib/$(TARGET)
-EXT_LIB_HOME=$(PINPLAY_HOME)/lib-ext/$(TARGET)
-
-
-CXXFLAGS = -D_FILE_OFFSET_BITS=64 -I$(PIN_ROOT)/source/tools/InstLib -DPINPLAY -I$(PINPLAY_INCLUDE_HOME) -I$(DCFG_INCLUDE_HOME) 
-
-CXXFLAGS += ${WARNINGS} $(DBG) $(OPT) ${DEPENDENCYFLAG} 
-
-TOOLNAMES=event_counter
-
-TOOLS=${TOOLNAMES:%=$(PINTOOL_PREFIX)%$(PINTOOL_SUFFIX)}
-
-
-# This defines tests which run tools of the same name.  This is simply for convenience to avoid
-# defining the test name twice (once in TOOL_ROOTS and again in TEST_ROOTS).
-# Tests defined here should not be defined in TOOL_ROOTS and TEST_ROOTS.
-TEST_TOOL_ROOTS := ${TOOL_NAMES} 
-
-# This defines the tests to be run that were not already defined in TEST_TOOL_ROOTS.
-TEST_ROOTS := 
-
-# This defines a list of tests that should run in the "short" sanity. Tests in this list must also
-# appear either in the TEST_TOOL_ROOTS or the TEST_ROOTS list.
-# If the entire directory should be tested in sanity, assign TEST_TOOL_ROOTS and TEST_ROOTS to the
-# SANITY_SUBSET variable in the tests section below (see example in makefile.rules.tmpl).
-SANITY_SUBSET :=
-
-# This defines the tools which will be run during the the tests, and were not already defined in
-# TEST_TOOL_ROOTS.
-TOOL_ROOTS :=
-
-# This defines the static analysis tools which will be run during the the tests. They should not
-# be defined in TEST_TOOL_ROOTS. If a test with the same name exists, it should be defined in
-# TEST_ROOTS.
-# Note: Static analysis tools are in fact executables linked with the Pin Static Analysis Library.
-# This library provides a subset of the Pin APIs which allows the tool to perform static analysis
-# of an application or dll. Pin itself is not used when this tool runs.
-
-# This defines all the applications that will be run during the tests.
-APP_ROOTS :=
-
-# This defines any additional object files that need to be compiled.
-OBJECT_ROOTS :=
-
-# This defines any additional dlls (shared objects), other than the pintools, that need to be compiled.
-DLL_ROOTS :=
-
-# This defines any static libraries (archives), that need to be built.
-LIB_ROOTS :=
-
-
-##############################################################
-#
-# Test recipes
-#
-##############################################################
-
-# This section contains recipes for tests other than the default.
-# See makefile.default.rules for the default test rules.
-# All tests in this section should adhere to the naming convention: <testname>.test
-
+TOOL_ROOTS := $(SDE_TOOLS) $(PINPLAY_TOOLS)
 
 ##############################################################
 #
@@ -93,32 +35,19 @@ LIB_ROOTS :=
 #
 ##############################################################
 
-# This section contains the build rules for all binaries that have special build rules.
-all: myinstall
-
-myinstall: 
-	$(MAKE) tools 
-	rm -f *.o
-	#$(MAKE) TARGET=ia32 tools 
-
-tools: $(TOOLS) 
-## build rules
-
-%.${OBJEXT}: %.cpp
-	$(CXX) ${MYDEFINES} ${COPT} $(CXXFLAGS) $(TOOL_INCLUDES) $(TOOL_CXXFLAGS) $(PIN_CXXFLAGS) ${COMP_OBJ}$@ $<
-
-$(PINTOOL_PREFIX)event_counter$(PINTOOL_SUFFIX): event_counter.${OBJEXT}    $(DCFG_LIB_HOME)/libintelzipstream.a  $(PINPLAY_LIB_HOME)/libpinplay.a  $(EXT_LIB_HOME)/libbz2.a $(EXT_LIB_HOME)/libzlib.a $(CONTROLLERLIB) 
-	$(LINKER) $(TOOL_LDFLAGS) $(LINK_EXE)$@ $^ $(TOOL_LPATHS) $(TOOL_LIBS) $(MYLIBS) $(EXTRA_LIBS) $(PIN_LIBS) $(DBG)  
-	@echo ""
-	@echo "*********************************"
-	mv -v $@  $(PINPLAY_HOME)/bin/$(TARGET)/
-	rm event_counter.${OBJEXT}
-	@echo ""
-
-## cleaning
-instclean: 
-	-rm -r -f *.${OBJEXT} $(PINPLAY_HOME)/bin/*/*.so *.out pinball *.d pin.log obj-* $(PIN_ROOT)/source/tools/InstLib/obj-*
-localclean: 
-	-rm -r -f *.${OBJEXT} pin.log obj-* $(PIN_ROOT)/source/tools/InstLib/obj-*
-
 # See makefile.default.rules for the default build rules.
+TOOL_CXXFLAGS := -I$(SDE_ROOT)/include $(TOOL_CXXFLAGS)
+TOOL_CXXFLAGS += -DSDE_INIT -DPINPLAY -I$(PINPLAY_ROOT)/include -I ../RegionControllers/PCcount  -I../RegionControllers/Icount -I$(PB2ELF)/pintools/PinballSYSState/ -I$(DCFG)
+
+ifeq ($(OS),Windows_NT)
+TOOL_LPATHS += /LIBPATH:$(SDE_ROOT)/lib/$(TARGET) /LIBPATH:$(PINPLAY_ROOT)/$(TARGET)
+TOOL_LPATHS += libpinplay.lib libsde.lib bz2.lib zlib.lib
+else
+# sde and pinplay libraries appears twice to avoid circular dependency
+TOOL_LPATHS += -L$(SDE_ROOT)/lib/$(TARGET) -L$(PINPLAY_ROOT)/$(TARGET)
+TOOL_LPATHS += -lpinplay -lsde -lpinplay -lsde -lbz2 -lzlib
+endif
+
+build: obj-$(TARGET)/event_counter.so
+	cp obj-$(TARGET)/event_counter.so $(SDE_BUILD_KIT)/$(TARGET)/sde-event-counter.so
+

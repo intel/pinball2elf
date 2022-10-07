@@ -1,38 +1,26 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: BSD-3-Clause
 /*BEGIN_LEGAL 
-Intel Open Source License 
+BSD License 
 
-Copyright (c) 2002-2020 Intel Corporation. All rights reserved.
- 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
+Copyright (c)2022 Intel Corporation. All rights reserved.
 
-Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer.  Redistributions
-in binary form must reproduce the above copyright notice, this list of
-conditions and the following disclaimer in the documentation and/or
-other materials provided with the distribution.  Neither the name of
-the Intel Corporation nor the names of its contributors may be used to
-endorse or promote products derived from this software without
-specific prior written permission.
- 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE INTEL OR
-ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 END_LEGAL */
 #include <iostream>
 #include <string>
 #include <sstream>
 
 #include "pin.H"
+#include "dcfg_pin_api.H"
 #include "control_manager.H"
 #if defined(SDE_INIT)
 #  include "sde-init.H"
@@ -66,6 +54,7 @@ using namespace INSTLIB;
 using namespace CONTROLLER;
 
 static CACHELINE_COUNTER global_ins_counter  = {0,0};
+
 static PIN_LOCK output_lock;
 
 static FILE  **out_fp=NULL;
@@ -110,6 +99,8 @@ KNOB<string> KnobPrefix(KNOB_MODE_WRITEONCE, "pintool", "prefix", "",
         "Prefix for output event_icount.tid.txt files");
 KNOB<ADDRINT> KnobWatchAddr(KNOB_MODE_APPEND, "pintool", "watch_addr", "",
                   "Address to watch");
+KNOB<BOOL>KnobExitOnStop(KNOB_MODE_WRITEONCE,"pintool", "exit_on_stop", "0",
+                       "Exit on Sim-End");
 
 
 static void PrintAddrcount(THREADID tid, string eventstr)
@@ -147,6 +138,8 @@ static void PrintIcount(THREADID tid, string eventstr, UINT32 rid=0)
     for (UINT32 i = 0; i < tcount; i++)
     {
       UINT64 ticount = thread_icount[i];
+      //if(KnobReplayer)
+      //  ticount = pinplay_engine.ReplayerGetICount(i);
 #ifdef TARGET_IA32E
       fprintf(out_fp[i], "%s global_icount: %ld", eventstr.c_str(), global_ins_counter._count);
 #else
@@ -208,6 +201,11 @@ VOID Handler(EVENT_TYPE ev, VOID * v, CONTEXT * ctxt, VOID * ip,
         eventstr="ThreadID";
         break;
 
+      case EVENT_STATS_EMIT:
+        std::cerr << "STATS_EMIT" << endl;
+        eventstr="STATS_EMIT";
+        break;
+
       default:
         ASSERTX(false);
         break;
@@ -217,7 +215,8 @@ VOID Handler(EVENT_TYPE ev, VOID * v, CONTEXT * ctxt, VOID * ip,
 
     PrintIcount(tid, eventstr);
     PrintAddrcount(tid, "\tMarker ");
-
+    if((ev == EVENT_STOP) && KnobExitOnStop)
+      PIN_ExitProcess(0);
     PIN_ReleaseLock(&output_lock);
 }
 
@@ -251,6 +250,11 @@ VOID LateHandler(EVENT_TYPE ev, VOID * v, CONTEXT * ctxt, VOID * ip,
         eventstr="Late-ThreadID";
         break;
 
+      case EVENT_STATS_EMIT:
+        std::cerr << "STATS_EMIT" << endl;
+        eventstr="Late-STATS_EMIT";
+        break;
+
       default:
         ASSERTX(false);
         break;
@@ -271,6 +275,7 @@ static VOID ProcessFini(INT32 code, VOID *v)
 VOID docount(THREADID tid, ADDRINT c)
 {
     ATOMIC::OPS::Increment<UINT64>(&global_ins_counter._count, c);
+    //global_ins_counter._count+= c;
     thread_icount[tid]+=c;
 }
 
@@ -291,6 +296,7 @@ static VOID  AddrBefore(THREADID tid, VOID * v)
     ATOMIC::OPS::Increment<UINT64>(&(ad->global_addr_counter._count), 1);
     ad->thread_addrcount[tid]+=1;
 }
+
 
 static VOID ThreadStart(THREADID tid, CONTEXT *ctxt, INT32 flags, VOID *v)
 {
