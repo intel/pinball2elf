@@ -320,6 +320,7 @@ void simendpccount_callback(lte_td_t td, int signum, siginfo_t* info, void* p)
 
 void start_idelta_counter()
 {
+   if (e_hw_idelta_perf > 0 ) return; // already called before
    if((ideltacount != 0) && (pcdeltacount != 0))
    {
         cerr <<  "Only one of 'istopdelta' and 'pcstopdelta' can be specified" << endl;
@@ -342,6 +343,7 @@ void start_idelta_counter()
 
 void start_pcdelta_counter()
 {
+   if (e_hw_pcdelta_perf > 0 ) return; // already called before
    if((ideltacount != 0) && (pcdeltacount != 0))
    {
         cerr <<  "Only one of 'istopdelta' and 'pcstopdelta' can be specified" << endl;
@@ -592,6 +594,8 @@ void perf_activate(uint64_t num_threads)
    pcstartvalue = pbcontrol.PCstartValue(); 
    pcstopvalue = pbcontrol.PCstopValue(); 
    pcdeltavalue = pbcontrol.PCdeltastopValue(); 
+   e_hw_idelta_perf = -1;
+   e_hw_pcdelta_perf = -1;
    if(!KnobEnableOnStart) start_pccounters();
    if(!KnobEnableOnStart) start_icounters();
 }

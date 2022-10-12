@@ -12,7 +12,8 @@ then
   exit 1;
 fi
 echo "RTNstart:__libc_start_main:1" > probe.in
-echo "RTNstop:exit:1" >> probe.in
+#echo "RTNstop:exit:1" >> probe.in
+echo "ideltastop:10000" >> probe.in
 export ROIPERF_VERBOSE=1
 export ROIPERF_PERFLIST="0:0,0:1,1:0"
 set -x
