@@ -3,7 +3,7 @@ It allows client tools to register callbacks on region-of-interests.
 
 Three types of regions are supported:
 
-1. RTN + count:
+1. SW-based: RTN + count:
    Thread-0: give a callback after 'count' executions of PC.
    Implemented using Pin-probes
     RTNstart:RTN-name:count, RTNstart:hex-PC:count
