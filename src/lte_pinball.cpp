@@ -239,8 +239,16 @@ bool pinball_arch_state_t::get_reg_value(lte_reg_enum_t id, lte_uint32_t size, c
    else
    {
       const char* reg_name = lte_reg_enum_t2str(id);
-      LTE_WARN("%s not supported, (%s:%s)", reg_name, reg_name, str);
-      ok = false;
+      if((strcmp(reg_name,"XINIT_BV")==0) || (strcmp(reg_name,"XMODIFIED_BV")==0))
+      {
+        // Ignore "XINIT_BV" and "XMODIFIED_BV"
+        ok = true;
+      }
+      else
+      {
+        LTE_WARN("%s not supported, (%s:%s)", reg_name, reg_name, str);
+        ok = false;
+      }
    }
 
    return ok;
@@ -352,6 +360,7 @@ bool pinball_arch_state_t::load_arch_desc(const char* fname)
       return false;
 
    lte_uint32_t num_reg_descs  = 0;
+   lte_int32_t last_index = -1;
 
    m_regs_info.clear();
 
@@ -371,7 +380,14 @@ bool pinball_arch_state_t::load_arch_desc(const char* fname)
                continue;
             }
 
-            //LTE_ERRAX(index > m_regs_info.size(), "wrong register index %s for %s [%s:%d]", line[1], line[0], fname, f.getlinesread());
+            lte_int32_t delta = index - (last_index + 1);
+            LTE_ERRAX((delta < 0), " input register indices are not in increasing order last_index: %d index %d\n   line: %s %s %s", last_index, index, line[0], line[1], line[2]);
+            if(delta > 0)
+            {
+              LTE_WARN("discontiguous register index %s for %s last_index %d", line[1], line[0], last_index);
+               m_regs_info.resize(m_regs_info.size()+delta);
+            }
+            last_index = (lte_int32_t)index;
             if(index > m_regs_info.size())
                m_regs_info.resize(index);
 
@@ -394,6 +410,13 @@ bool pinball_arch_state_t::load_arch_desc(const char* fname)
                continue;
             }
 
+            lte_reg_enum_t regname = LTE_REG_INVALID;
+            regname= str2lte_reg_enum_t(line.to_upper(0));
+            if(regname == LTE_REG_INVALID)
+            {
+               LTE_WARN("Unhandled register %s");
+               continue;
+            }
             m_regs_info[index].id = str2lte_reg_enum_t(line.to_upper(0));
             m_regs_info[index].index = index;
             m_regs_info[index].size = size;
