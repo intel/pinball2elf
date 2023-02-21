@@ -13,6 +13,7 @@ Redistribution and use in source and binary forms, with or without modification,
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 END_LEGAL */
+
 #ifndef PSTREE_H
 #define PSTREE_H
 #include <errno.h>
@@ -58,15 +59,23 @@ unsigned long long elapsed_nsec(struct timespec begin, struct timespec end);
  */
 void sleep_remaining(struct timespec begin, struct timespec end, unsigned long period_us);
 
-/* given a pid, setup a userspace icounter   */
-int setup_icount(pid_t pid);
+/* given a pid, setup a userspace icounter for polling  */
+int setup_icount_poll(pid_t pid);
+/* given a pid, setup a group of hardware perfcounters for interrupting.
+ * leader is the first counter and is expected to be a userspace
+ * counter (e.g., userspace icount). returns file descriptors
+ * in 'pfds' for configs specified in 'cfgs'. 'size' is the length
+ * of both these arrays
+ */
+void setup_perfcounters_group(pid_t pid, unsigned long long leader_count, int *pfds, unsigned long long *cfgs, unsigned long size);
 /* setup a hardware breakpoint in 'pid'
  * at 'addr' to fire after 'count' 
  * occurrences.
  */
-int setup_pccount(pid_t pid, void *addr, unsigned long count);
+int setup_pccount(pid_t pid, void *addr, unsigned long long count);
 long parse_long(char *arg, const char *err);
 unsigned long long parse_ull(char *arg, const char *err);
+double parse_double(char *arg, const char *err);
 void copy_ull(unsigned long long *dst, unsigned long long *src, \
               unsigned long count);
 void ptrace_cmd(enum __ptrace_request cmd, pid_t pid, void *addr, void *data, \
@@ -77,10 +86,16 @@ void get_monotonic(struct timespec *tp, const char *msg);
 int append_thread(pid_t *pout, pid_t *tout, int *pfds, unsigned long *count, \
                    pid_t pid, pid_t tid);
 pid_t find_pid(pid_t *pout, pid_t *tout, unsigned long count, pid_t tid);
+void seize_tid(pid_t tid);
+void continue_tid(pid_t tid, pid_t pid);
+void interrupt_tid(pid_t tid);
+void detach_tid(pid_t tid, pid_t pid);
 unsigned long long read_single_icount(int pfd);
 unsigned long long read_all_icounts(int *pfds, unsigned long *tdone, \
                                     unsigned long long *icounts, unsigned long long *prevcounts, \
                                     unsigned long count);
+/* read perf counter values from the group setup by setup_perfcounters_group */
+void read_perfcounters_group(int *pfds, unsigned long long *vals, unsigned long count);
 int handle_exit(pid_t *pout, pid_t *tout, int *pfds, unsigned long *tdone, \
                 unsigned long long *icounts, unsigned long count, \
                 pid_t child, int wstatus, \

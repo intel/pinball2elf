@@ -21,24 +21,26 @@ int main(int argc, char *argv[])
     pid_t pout[MAXPROCS], tout[MAXPROCS];
     unsigned long tdone[MAXPROCS]={0}, donecount = 0;
     unsigned long count, i;
-    int wstatus, pfd;
+    int wstatus;
     unsigned long long limit, pc;
+    int pfds[4];
+    /* measure userspace icount, cycles, branch-misses and cache-misses */
+    unsigned long long cfgs[4] = {PERF_COUNT_HW_INSTRUCTIONS, PERF_COUNT_HW_CPU_CYCLES, PERF_COUNT_HW_BRANCH_MISSES, PERF_COUNT_HW_CACHE_MISSES};
+    unsigned long long vals[4];
 
-    if (argc != 5) {
-        fprintf(stderr, "usage: %s <pid> <tid> <pc> <limit>\n", argv[0]);
-        fprintf(stderr, "stop a process tree at a given thread after <limit> occurrences of an instruction at <pc>\n");
+    if (argc != 4) {
+        fprintf(stderr, "usage: %s <pid> <tid> <limit>\n", argv[0]);
+        fprintf(stderr, "stop a process tree at a given thread after <limit> userspace instructions and measure performance\n");
         fprintf(stderr, "<pid>    :     pid of the root of a SIGSTOPPED pstree\n");
         fprintf(stderr, "<tid>    :     tid of the target thread\n");
-        fprintf(stderr, "<pc>     :     instruction address of the target instruction\n");
-        fprintf(stderr, "<limit>  :     no. of occurrences of <pc> after which to stop (0 for completion)\n");
+        fprintf(stderr, "<limit>  :     no. of userspace instructions after which to stop (0 for completion)\n");
         return EXIT_FAILURE;
     }
 
     errno = 0;
     pid = parse_long(argv[1], "parse_long: Invalid PID");
     tid = parse_long(argv[2], "parse_long: Invalid TID");
-    pc = parse_ull(argv[3], "parse_ull: Invalid instruction address");
-    limit = parse_ull(argv[4], "parse_ull: Invalid count");
+    limit = parse_ull(argv[3], "parse_ull: Invalid count");
 
     count = get_pstree(pid, pout, tout);
     fprintf (stdout, "pstree size: %lu\n", count);
@@ -53,12 +55,12 @@ int main(int argc, char *argv[])
     for (i=0; i < count; i++)
         seize_tid(tout[i]);
 
-    /* setup pc/count for the target thread */
+    /* setup perfcounters for the target thread */
     for (i=0; i < count; i++)
         if (tout[i] == tid)
             break;
     if (i < count) {
-        pfd = setup_pccount(tout[i], (void *)pc, limit);
+        setup_perfcounters_group(tout[i], limit, pfds, cfgs, 4);
     } else {
         fprintf(stderr, "unable to find TID: %d in pstree at %d\n", pid, tid);
         return EXIT_FAILURE;
@@ -77,14 +79,12 @@ int main(int argc, char *argv[])
 #if VERBOSE > 1
             fprintf(stdout, "SIGIO stop at TID %d with status 0x%x\n", child, wstatus);
 #endif
+            fprintf (stdout, "paused pstree (root PID: %d) at TID: %d\n", pid, tid);
             /* desired point reached: stop the tracees  */
             for (i=0; i < count; i++) {
                 if (!tdone[i])
                     interrupt_tid(tout[i]);
             }
-            /* output stats */
-            fprintf (stdout, "paused pstree (root PID: %d) at TID: %d , IP: 0x%llx, after %llu occurrences\n", \
-                     pid, tid, pc, limit);
             break;
         /* valid stopped child: process stop event    */
         } else if (child > 0 && WIFSTOPPED(wstatus)) {
@@ -103,6 +103,8 @@ int main(int argc, char *argv[])
             return EXIT_FAILURE;
         }
     }
+    /* measure performance  */
+    read_perfcounters_group(pfds, vals, 4);
 
     /* detach from undetached tracees  */
     for (i=0; i < count; i++) {
@@ -110,6 +112,12 @@ int main(int argc, char *argv[])
             detach_tid(tout[i], pout[i]);
     }
 
+    /* output stats */
+    fprintf (stdout, "perf counter stats below:\n");
+    fprintf (stdout, "userspace instructions:\t%llu\n", vals[0]);
+    fprintf (stdout, "cycles:\t%llu\n", vals[1]);
+    fprintf (stdout, "branch-misses:\t%llu\n", vals[2]);
+    fprintf (stdout, "cache-misses:\t%llu\n", vals[3]);
     return EXIT_SUCCESS;
 }
 

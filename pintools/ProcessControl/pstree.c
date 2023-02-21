@@ -13,6 +13,7 @@ Redistribution and use in source and binary forms, with or without modification,
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 END_LEGAL */
+
 #include "pstree.h"
 
 void set_procfs_task_dir(pid_t pid, char *dir)
@@ -75,7 +76,7 @@ unsigned long get_all_children(pid_t pid, pid_t tid, pid_t *children)
     cfile = fopen(cfile_path, "r");
     if (cfile == NULL) {
         perror("get_all_children");
-        fprintf(stderr, "warning: couldn't open children file. Is CONFIG_CHECKPOINT_RESTORE enabled in the kernel?\n");
+        fprintf(stderr, "error: couldn't open children file. Is CONFIG_CHECKPOINT_RESTORE enabled in the kernel?\n");
         exit(EXIT_FAILURE);
     }
     while (fscanf(cfile, "%d", &val) == 1) {
@@ -158,13 +159,17 @@ unsigned long long elapsed_nsec(struct timespec begin, struct timespec end)
     intvl.tv_sec = end.tv_sec - begin.tv_sec;
     if (end.tv_nsec < begin.tv_nsec) {
         intvl.tv_sec -= 1;
-        intvl.tv_nsec = begin.tv_nsec + 1000000000LL - end.tv_nsec;
+        intvl.tv_nsec = end.tv_nsec + 1000000000LL - begin.tv_nsec;
     } else {
         intvl.tv_nsec = end.tv_nsec - begin.tv_nsec;
     }
     /* in nanoseconds   */
     nsec = intvl.tv_sec * 1000000000LL + intvl.tv_nsec;
 
+#if VERBOSE > 3
+    fprintf(stdout, "elapsed_nsec: begin: %lu.%09lu s, end : %lu.%09lu s, elapsed: %llu ns\n", \
+            begin.tv_sec, begin.tv_nsec, end.tv_sec, end.tv_nsec, nsec);
+#endif
     return nsec;
 }
 
@@ -205,8 +210,8 @@ void sleep_remaining(struct timespec begin, struct timespec end, unsigned long p
     }
 }
 
-/* given a pid, setup a userspace icounter   */
-int setup_icount(pid_t pid)
+/* given a pid, setup a userspace icounter for polling  */
+int setup_icount_poll(pid_t pid)
 {
     struct perf_event_attr pe;
     int pfd = -1;
@@ -222,7 +227,7 @@ int setup_icount(pid_t pid)
     pe.exclude_hv = 1;
     pfd = syscall(__NR_perf_event_open, &pe, pid, -1, -1, 0);
     if (pfd < 0) {
-        perror("setup_icount: unable to setup icount");
+        perror("setup_icount_poll: unable to setup icount");
         exit(EXIT_FAILURE);
     }
     ioctl(pfd, PERF_EVENT_IOC_RESET, 0);
@@ -230,11 +235,65 @@ int setup_icount(pid_t pid)
     return pfd;
 }
 
+/* given a pid, setup a group of hardware perfcounters for interrupting.
+ * leader is the first counter and is expected to be a userspace
+ * counter (e.g., userspace icount). returns file descriptors
+ * in 'pfds' for configs specified in 'cfgs'. 'size' is the length
+ * of both these arrays
+ */
+void setup_perfcounters_group(pid_t pid, unsigned long long leader_count, int *pfds, unsigned long long *cfgs, unsigned long size)
+{
+    struct perf_event_attr pe;
+    unsigned long i;
+
+    memset(&pe, 0, sizeof(struct perf_event_attr));
+    pe.type = PERF_TYPE_HARDWARE;
+    pe.size = sizeof(struct perf_event_attr);
+    pe.config = cfgs[0];
+    pe.sample_type = PERF_SAMPLE_READ;
+    pe.sample_period = leader_count;
+    pe.watermark = 1;
+    pe.wakeup_watermark = 1;
+    pe.disabled = 1;
+    pe.inherit = 0;
+    pe.pinned = 1;
+    pe.exclude_kernel = 1;
+    pe.exclude_hv = 1;
+    pfds[0] = syscall(__NR_perf_event_open, &pe, pid, -1, -1, 0);
+    if (pfds[0] < 0) {
+        perror("setup_perfcounters_interrupt: unable to setup leader count");
+        exit(EXIT_FAILURE);
+    }
+    /* setup SIGIO to fire once watermark is reached    */
+    fcntl(pfds[0], F_SETOWN, pid);
+    fcntl(pfds[0], F_SETFL, fcntl(pfds[0], F_GETFL) | FASYNC);
+    /* remaining counters in the group  */
+    for (i=1; i < size; i++) {
+        memset(&pe, 0, sizeof(struct perf_event_attr));
+        pe.type = PERF_TYPE_HARDWARE;
+        pe.size = sizeof(struct perf_event_attr);
+        pe.config = cfgs[i];
+        pe.sample_type = PERF_SAMPLE_READ;
+        pe.disabled = 1;
+        pe.inherit = 0;
+        pfds[i] = syscall(__NR_perf_event_open, &pe, pid, -1, pfds[0], 0);
+        if (pfds[i] < 0) {
+            fprintf(stderr, "error setting up performance counter %lu\n", i);
+            perror("setup_perfcounters_interrupt: unable to setup group perfcounters");
+            exit(EXIT_FAILURE);
+        }
+    }
+    for (i=0; i < size; i++) {
+        ioctl(pfds[i], PERF_EVENT_IOC_RESET, 0);
+        ioctl(pfds[i], PERF_EVENT_IOC_ENABLE, 0);
+    }
+}
+
 /* setup a hardware breakpoint in 'pid'
  * at 'addr' to fire after 'count' 
  * occurrences.
  */
-int setup_pccount(pid_t pid, void *addr, unsigned long count)
+int setup_pccount(pid_t pid, void *addr, unsigned long long count)
 {
     struct perf_event_attr pe;
     int pfd = -1;
@@ -262,10 +321,21 @@ int setup_pccount(pid_t pid, void *addr, unsigned long count)
     }
     /* setup SIGIO to fire once watermark is reached    */
     fcntl(pfd, F_SETOWN, pid);
-	fcntl(pfd, F_SETFL, fcntl(pfd, F_GETFL) | FASYNC);
+    fcntl(pfd, F_SETFL, fcntl(pfd, F_GETFL) | FASYNC);
     ioctl(pfd, PERF_EVENT_IOC_RESET, 0);
     ioctl(pfd, PERF_EVENT_IOC_ENABLE, 0);
     return pfd;
+}
+
+inline void parse_error_check(const char *arg, const char *err, const char *last)
+{
+    if (errno) {
+        perror(err);
+        exit(EXIT_FAILURE);
+    } else if (last == arg || *last != '\0') {
+        fprintf(stderr, "%s\n", err);
+        exit(EXIT_FAILURE);
+    }
 }
 
 long parse_long(char *arg, const char *err)
@@ -274,13 +344,7 @@ long parse_long(char *arg, const char *err)
     char *last;
     errno = 0;
     result = strtol(arg, &last, 0);
-    if (errno) {
-        perror(err);
-        exit(EXIT_FAILURE);
-    } else if (last == arg || *last != '\0') {
-        fprintf(stderr, "%s\n", err);
-        exit(EXIT_FAILURE);
-    }
+    parse_error_check(arg, err, last);
     return result;
 }
 
@@ -290,13 +354,17 @@ unsigned long long parse_ull(char *arg, const char *err)
     char *last;
     errno = 0;
     result = strtoull(arg, &last, 0);
-    if (errno) {
-        perror(err);
-        exit(EXIT_FAILURE);
-    } else if (last == arg || *last != '\0') {
-        fprintf(stderr, "%s\n", err);
-        exit(EXIT_FAILURE);
-    }
+    parse_error_check(arg, err, last);
+    return result;
+}
+
+double parse_double(char *arg, const char *err)
+{
+    double result;
+    char *last;
+    errno = 0;
+    result = strtod(arg, &last);
+    parse_error_check(arg, err, last);
     return result;
 }
 
@@ -311,13 +379,13 @@ void ptrace_cmd(enum __ptrace_request cmd, pid_t pid, void *addr, void *data, \
 {
     int retval;
 
-#if VERBOSE > 2
-    fprintf(stdout, "ptrace: cmd: %d, tid: %d, addr: %ld, data: %ld, strict: %d, msg: %s\n", \
-            cmd, pid, (long) addr, (long) data, strict, msg);
-#endif
-
     errno = 0;
     retval = ptrace(cmd, pid, addr, data);
+
+#if VERBOSE > 2
+    fprintf(stdout, "ptrace: cmd: %d, tid: %d, addr: %ld, data: %ld, strict: %d, retval: %d, errno: %d, msg: %s\n", \
+            cmd, pid, (long) addr, (long) data, strict, retval, errno, msg);
+#endif
 
     if (retval && strict) {
         perror (msg);
@@ -336,6 +404,9 @@ void get_monotonic(struct timespec *tp, const char *msg)
         perror(msg);
         exit(EXIT_FAILURE);
     }
+#if VERBOSE > 3
+    fprintf(stdout, "get_monotonic: %s: %lu.%09lu s\n", msg, tp->tv_sec, tp->tv_nsec);
+#endif
 }
 
 /* search current pids/tids */
@@ -382,7 +453,7 @@ int append_thread(pid_t *pout, pid_t *tout, int *pfds, unsigned long *count, \
     pout[*count] = pid;
     tout[*count] = tid;
     if (pfds) {
-        pfds[*count] = setup_icount(tid);
+        pfds[*count] = setup_icount_poll(tid);
     }
 #if VERBOSE > 1
     if (pfds) {
@@ -404,6 +475,69 @@ pid_t find_pid(pid_t *pout, pid_t *tout, unsigned long count, pid_t tid)
         }
     }
     return 0;
+}
+
+void seize_tid(pid_t tid)
+{
+    pid_t child;
+    int wstatus;
+#if VERBOSE > 0
+    fprintf(stdout, "Seizing Thread with TID: %d\n", tid);
+#endif
+    ptrace_cmd(PTRACE_SEIZE, tid, 0, \
+               (void *)(PTRACE_O_TRACECLONE | \
+               PTRACE_O_TRACEFORK | \
+               PTRACE_O_TRACEVFORK | \
+               PTRACE_O_TRACEEXIT), \
+               1, "seize_tid:ptrace_seize");
+#if VERBOSE > 2
+    child = waitpid(tid, &wstatus, WNOHANG);
+    if(child != tid || !WIFSTOPPED(wstatus)) {
+        perror("seize_tid");
+        fprintf(stderr, "warning: unexpected thread state. child: %d, tid: %d, wstatus: %d\n", child, tid, wstatus);
+    }
+#endif
+}
+
+void continue_tid(pid_t tid, pid_t pid)
+{
+#if VERBOSE > 0
+    fprintf(stdout, "Continuing Thread with TID: %d\n", tid);
+#endif
+    if (kill(pid, SIGCONT)) {
+        perror("continue_tid");
+        exit(EXIT_FAILURE);
+    }
+    ptrace_cmd(PTRACE_CONT, tid, 0, 0, 0, "continue_tid:ptrace_cont");
+}
+
+void interrupt_tid(pid_t tid)
+{
+    pid_t child;
+    int wstatus;
+#if VERBOSE > 0
+    fprintf(stdout, "Interrupting Thread with TID: %d\n", tid);
+#endif
+    ptrace_cmd(PTRACE_INTERRUPT, tid, 0, 0, 1, "interrupt_tid:ptrace_interrupt");
+#if VERBOSE > 2
+    child = waitpid(tid, &wstatus, WNOHANG);
+    if (child != tid || !WIFSTOPPED(wstatus)) {
+        perror("interrupt_tid");
+        fprintf(stderr, "warning: unexpected thread state. child: %d, tid: %d, wstatus: %d\n", child, tid, wstatus);
+    }
+#endif
+}
+
+void detach_tid(pid_t tid, pid_t pid)
+{
+#if VERBOSE > 0
+    fprintf(stdout, "Detaching from thread with TID: %d\n", tid);
+#endif
+    if (kill(pid, SIGSTOP)) {
+        perror("detach_tid");
+        exit(EXIT_FAILURE);
+    }
+    ptrace_cmd(PTRACE_DETACH, tid, 0, 0, 0, "detach_tid:ptrace_detach");
 }
 
 unsigned long long read_single_icount(int pfd)
@@ -443,6 +577,17 @@ unsigned long long read_all_icounts(int *pfds, unsigned long *tdone, \
     fprintf(stdout, "%llu\n", total);
 #endif
     return total;
+}
+
+/* read perf counter values from the group setup by setup_perfcounters_group */
+void read_perfcounters_group(int *pfds, unsigned long long *vals, unsigned long count)
+{
+    unsigned long i;
+    for (i=0; i < count; i++) {
+        if (read(pfds[i], &vals[i], sizeof(vals[i])) != sizeof(vals[i])) {
+            fprintf(stderr, "warning: unable to read perfcounter %lu from fd: %d\n", i, pfds[i]);
+        }
+    }
 }
 
 int handle_exit(pid_t *pout, pid_t *tout, int *pfds, unsigned long *tdone, \

@@ -13,11 +13,26 @@ Redistribution and use in source and binary forms, with or without modification,
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 END_LEGAL */
+
 #include "pstree.h"
+
+/* global variable: set this to pause and exit now  */
+static unsigned int pstree_stop_now = 0;
+
+/* SIGUSR1 handler  */
+void usr1_handler(int signum)
+{
+#if VERBOSE > 0
+    fprintf (stdout, "usr1_handler: signum: %d(%s), pstree_stop_now: %d\n", signum, strsignal(signum), pstree_stop_now);
+#endif
+    if (signum != SIGUSR1)
+        return;
+    pstree_stop_now = 1;
+}
 
 int main(int argc, char *argv[])
 {
-    pid_t pid, child;
+    pid_t pid, child, thispid;
     pid_t pout[MAXPROCS], tout[MAXPROCS];
     unsigned long tdone[MAXPROCS]={0}, donecount = 0;
     unsigned long us, count, i;
@@ -25,16 +40,40 @@ int main(int argc, char *argv[])
     int wstatus, pfds[MAXPROCS];
     unsigned long long icounts[MAXPROCS]={0}, total = 0, limit;
     unsigned long long prevcounts[MAXPROCS]={0};
+    // signal handlers for asynchronous exit
+    sigset_t all_mask, usr1_mask;
+    struct sigaction usr1_action;
+    thispid = getpid();
 
     if (argc != 4) {
         fprintf(stderr, "usage: %s <pid> <us> <limit>\n", argv[0]);
-        fprintf(stderr, "stop a process tree after a given number of total instructions\n");
+        fprintf(stderr, "stop a process tree after a given number of total instructions or on receiving SIGUSR1 asynchronously\n");
         fprintf(stderr, "<pid>    :     pid of the root of a SIGSTOPPED pstree\n");
         fprintf(stderr, "<us>     :     polling time period in microseconds\n");
         fprintf(stderr, "<limit>  :     instruction count beyond which to stop (0 for run to completion)\n");
         return EXIT_FAILURE;
     }
 
+    /* block all signals    */
+#if VERBOSE > 0
+    fprintf (stdout, "blocking all signals for PID: %d\n", thispid);
+#endif
+    sigfillset(&all_mask);
+    sigprocmask(SIG_BLOCK, &all_mask, NULL);
+
+    /* install SIGUSR1 handler   */
+#if VERBOSE > 0
+    fprintf (stdout, "installing SIGUSR1 handler for PID: %d\n", thispid);
+#endif
+    sigfillset(&usr1_mask);
+    sigdelset(&usr1_mask, SIGUSR1);
+    usr1_action.sa_handler = usr1_handler;
+    usr1_action.sa_mask = usr1_mask;
+    usr1_action.sa_flags = 0;
+    sigaction(SIGUSR1, &usr1_action, NULL);
+    fprintf (stdout, "controller PID: %d, address of global variable for asynchronous exit: %p\n", thispid, &pstree_stop_now);
+
+    /* command line arguments   */
     errno = 0;
     pid = parse_long(argv[1], "parse_long: Invalid PID");
     us = parse_long(argv[2], "parse_long: Invalid time period");
@@ -50,40 +89,41 @@ int main(int argc, char *argv[])
 #endif
 
     /* make all tids tracees */
-    for (i=0; i < count; i++) {
-        ptrace_cmd(PTRACE_SEIZE, tout[i], 0, \
-                   (void *)(PTRACE_O_TRACECLONE | \
-                   PTRACE_O_TRACEFORK | \
-                   PTRACE_O_TRACEVFORK | \
-                   PTRACE_O_TRACEEXIT), \
-                   1, "main:ptrace_seize");
-    }
+    for (i=0; i < count; i++)
+        seize_tid(tout[i]);
 
     /* setup icount for all tracees */
     for (i=0; i < count; i++)
-        pfds[i] = setup_icount(tout[i]);
+        pfds[i] = setup_icount_poll(tout[i]);
 
     /* restart tracees  */
     for (i=0; i < count; i++)
-        ptrace_cmd(PTRACE_CONT, tout[i], 0, 0, 1, "main:restart");
+        continue_tid(tout[i], pout[i]);
 
     /* measure time for periodic wakeups   */
     get_monotonic(&begin, "main:monotonic:begin");
 
     /* main ptrace loop */
     while (1) {
+        /* unblock signals only while waiting */
+        sigprocmask(SIG_UNBLOCK, &all_mask, NULL);
         /* non-blocking wait    */
         child = waitpid(-1, &wstatus, WNOHANG);
+        /* block signals  again */
+        sigprocmask(SIG_BLOCK, &all_mask, NULL);
         /* no events: read icounts  */
         if (child == 0) {
             total = read_all_icounts(pfds, tdone, icounts, prevcounts, count);
             copy_ull(prevcounts, icounts, count);
-            /* desired point reached: stop the tracees  */
-            if (limit > 0 && total > limit) {
+            /* desired point reached or asynchronous exit: stop the tracees  */
+            if ((limit > 0 && total > limit) || pstree_stop_now) {
                 for (i=0; i < count; i++) {
                     if (!tdone[i])
-                        ptrace_cmd(PTRACE_INTERRUPT, tout[i], 0, 0, 1, "main:ptrace_interrupt");
+                        interrupt_tid(tout[i]);
                 }
+                /* read the icounts after pausing   */
+                total = read_all_icounts(pfds, tdone, icounts, prevcounts, count);
+                copy_ull(prevcounts, icounts, count);
                 break;
             }
         /* valid stopped child: process stop event    */
@@ -113,7 +153,7 @@ int main(int argc, char *argv[])
     /* detach from undetached tracees  */
     for (i=0; i < count; i++) {
         if (!tdone[i])
-            ptrace_cmd(PTRACE_DETACH, tout[i], 0, 0, 0, "main:ptrace_detach");
+            detach_tid(tout[i], pout[i]);
     }
 
     /* output stats */

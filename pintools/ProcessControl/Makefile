@@ -3,7 +3,7 @@ CC=gcc
 CFLAGS=-g -O2 -DVERBOSE=$(VERBOSE)
 LDFLAGS=
 DEPS=pstree.h
-EXE=pstree-icount pstree-pccount pstree-timedrun
+EXE=pstree-icount pstree-timedrun pstree-pccount pstree-threadperf
 
 all: $(EXE)
 
@@ -14,6 +14,9 @@ pstree-timedrun: pstree-timedrun.o pstree.o
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 pstree-pccount: pstree-pccount.o pstree.o
+	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
+
+pstree-threadperf: pstree-threadperf.o pstree.o
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 %.o: %.c $(DEPS)
