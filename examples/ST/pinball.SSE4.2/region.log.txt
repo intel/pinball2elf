@@ -1,0 +1,47 @@
+Enabled messages [UnixVersion()] 52  info: Informational messages (enabled by default)
+Logger finished sanity check 
+Logger first configuration phase completed 
+Region selector activated 
+[0] Pinball basename: hidden-path/pinball.SSE4.2/region
+Found VDSO area from Pin AUXV at 0x2aaaaaacf000:0x2aaaaaad1000
+Loading hidden-path/base.exe(0x000400000:0x00040cafb)
+Loading /lib64/ld-linux-x86-64.so.2(0x2aaaaaaab000:0x2aaaaaacbda3)
+[0] Started logging thread OSPid: 23260 OSTid: 23260
+Replacing AT_SYSINFO_EHDR
+	 from AT_SYSINFO_EHDR, 0x2aaaaaacf000
+	 to AT_IGNORE,0
+Loading /lib64/libm.so.6(0x2aaaf0747000:0x2aaaf0a43147)
+Loading /lib64/libgcc_s.so.1(0x2aaaf0b46000:0x2aaaf0d5d447)
+Loading /lib64/libc.so.6(0x2aaaf0d5e000:0x2aaaf1102a77)
+Loading /lib64/libdl.so.2(0x2aaaf1103000:0x2aaaf13060ef)
+[0] region-start
+[0] + RECEIVED AND PROCESSED START event: ip:0x0004015ab time:Mon Apr 10 20:13:09 2023
+[0] Stopping all threads - processing controller event
+[0] Stopping all threads succeeded
+[0] + STARTING NEW REGION at: ip:0x0004015b0 time:Mon Apr 10 20:13:09 2023
+[0]  Region# : 0
+[0] Region has 1 existing threads(s)
+[0] SyncThreads clear pending event 
+[0] Resuming all threads - complied processing controller event
+[0] InitRegion : 0
+[0] region-end
+[0] + RECEIVED STOP event: icount: 9997 time:Mon Apr 10 20:13:09 2023
+[0] Stopping all threads - processing controller event
+[0] Stopping all threads succeeded
+[0] EndRegion called for pp_id: 0
+[0] End of Region at icount: 10009
+[0] Closing global resources.
+[0] RemoveVsyscallFromRanges: removed pages: 0
+[0] Wrote address ranges: pagecount: 758. Logged text pages count:758 Logged data pages count:0 (total logged pages:758)
+RemoveTextFileDuplications for hidden-path/pinball.SSE4.2/region
+[0] SUCCESSFULLY CLOSED ALL TRACE FILES AT REGION END.
+[0] Exiting due to log:early_out ic: 10009
+[0] ThreadFini: logger thread at 0x2aaaf0e4155e
+[0] Unloading hidden-path/base.exe image id 1 icount 10009
+[0] Unloading /lib64/ld-linux-x86-64.so.2 image id 2 icount 10009
+[0] Unloading [vdso] image id 3 icount 10009
+[0] Unloading /lib64/libm.so.6 image id 4 icount 10009
+[0] Unloading /lib64/libgcc_s.so.1 image id 5 icount 10009
+[0] Unloading /lib64/libc.so.6 image id 6 icount 10009
+[0] Unloading /lib64/libdl.so.2 image id 7 icount 10009
+[0] EndRegion called for pp_id: 0

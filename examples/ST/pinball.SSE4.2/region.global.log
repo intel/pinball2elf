@@ -1,0 +1,141 @@
+sde-command-line: $SDEHOME/sde -nhm -control start:icount:50000000 -control stop:icount:50010000 -early_out -log -log:basename pinball.SSE4.2/region -log:fat -- ./base.exe 300 reference.dat 0 1 100_100_130_cf_b.of
+pin-command-line: $SDEHOME/intel64/pinbin -p32 $SDEHOME/ia32/pinbin -waiting_process 23260 -waiting_injector 23263 -sigchld_handler 1 -logfile hidden-path/pin-log.txt -xyzzy -bridge-save-mxcsr 0 -bridge-set-mxcsr 1 -cc_memory_size_64 1073741824 -use_sahf 0 -follow-execv -virtual_segments 1 -xed_ignore_unknown_reg -t64 $SDEHOME/intel64/sde-mix-mt.so -t $SDEHOME/ia32/sde-mix-mt.so -logfile hidden-path/pin-tool-log.txt -work-dir hidden-path -pinplay:work-dir hidden-path -chip-check NEHALEM -log -log:early-out -sync-avx512-state 0 -cpuid-in $SDEHOME/misc/cpuid/nhm/cpuid.def -control start:icount:50000000 -control stop:icount:50010000 -log:basename pinball.SSE4.2/region -log:fat
+app-command-line: ./base.exe 300 reference.dat 0 1 100_100_130_cf_b.of
+OSPid: 23260
+fat: 1
+lit: 0
+user_name: someone
+OS_info:  some info
+relogged: 0
+arch: x86_64
+num_static_threads: 1
+num_dynamic_threads: 1
+num_threads_started: 1
+log creation date/time: Mon Apr 10 20:13:09 2023
+log format version: 2.16
+charm revision: 98650
+linker_break_address: 0x2aaaaaaba6d0
+data_page_size:  4096
+text_page_size:  4096
+vdso_address: 0x2aaaaaacf000 0x2aaaaaad1000
+num_reg_descs:  115
+RAX 0 8
+EAX 1 4
+AX 2 2
+AH 3 1
+AL 4 1
+RCX 5 8
+ECX 6 4
+CX 7 2
+CH 8 1
+CL 9 1
+RDX 10 8
+EDX 11 4
+DX 12 2
+DH 13 1
+DL 14 1
+RBX 15 8
+EBX 16 4
+BX 17 2
+BH 18 1
+BL 19 1
+RSP 20 8
+ESP 21 4
+SP 22 2
+SPL 23 1
+RBP 24 8
+EBP 25 4
+BP 26 2
+BPL 27 1
+RSI 28 8
+ESI 29 4
+SI 30 2
+SIL 31 1
+RDI 32 8
+EDI 33 4
+DI 34 2
+DIL 35 1
+R8 36 8
+R8D 37 4
+R8W 38 2
+R8B 39 1
+R9 40 8
+R9D 41 4
+R9W 42 2
+R9B 43 1
+R10 44 8
+R10D 45 4
+R10W 46 2
+R10B 47 1
+R11 48 8
+R11D 49 4
+R11W 50 2
+R11B 51 1
+R12 52 8
+R12D 53 4
+R12W 54 2
+R12B 55 1
+R13 56 8
+R13D 57 4
+R13W 58 2
+R13B 59 1
+R14 60 8
+R14D 61 4
+R14W 62 2
+R14B 63 1
+R15 64 8
+R15D 65 4
+R15W 66 2
+R15B 67 1
+RIP 68 8
+EIP 69 4
+IP 70 2
+RFLAGS 71 8
+EFLAGS 72 4
+FLAGS 73 2
+CS 74 2
+DS 75 2
+ES 76 2
+SS 77 2
+FS 78 2
+GS 79 2
+FS-BASE 80 8
+GS-BASE 81 8
+MXCSR 82 4
+FCW 84 2
+FSW 85 2
+FTW 86 1
+FOP 87 2
+FPUIP 88 4
+X87CS 89 2
+FPUDP 90 4
+X87DS 91 2
+ST0 92 10
+ST1 93 10
+ST2 94 10
+ST3 95 10
+ST4 96 10
+ST5 97 10
+ST6 98 10
+ST7 99 10
+XMM0 100 16
+XMM1 101 16
+XMM2 102 16
+XMM3 103 16
+XMM4 104 16
+XMM5 105 16
+XMM6 106 16
+XMM7 107 16
+XMM8 108 16
+XMM9 109 16
+XMM10 110 16
+XMM11 111 16
+XMM12 112 16
+XMM13 113 16
+XMM14 114 16
+XMM15 115 16
+ip_entry:image_load: 0x00040158e
+ip_entry:image_load: 0x2aaaf0dd3b00
+mem_injections_ip_optimization: 1
+smc_granularity: 128
+xinuse_emulate: 1

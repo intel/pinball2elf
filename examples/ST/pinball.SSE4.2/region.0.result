@@ -1,0 +1,33 @@
+-- start of image-load-log --------------------------------------- 
+Loading hidden-path/base.exe(0x000400000:0x00040cafb)
+Loading /lib64/ld-linux-x86-64.so.2(0x2aaaaaaab000:0x2aaaaaacbda3)
+Loading /lib64/libm.so.6(0x2aaaf0747000:0x2aaaf0a43147)
+Loading /lib64/libgcc_s.so.1(0x2aaaf0b46000:0x2aaaf0d5d447)
+Loading /lib64/libc.so.6(0x2aaaf0d5e000:0x2aaaf1102a77)
+Loading /lib64/libdl.so.2(0x2aaaf1103000:0x2aaaf13060ef)
+preloaded_image: 1 1  0x000000000 0x2aaaae06bf40 0x00060dde0 0x000000000 hidden-path/base.exe
+preloaded_image: 2 0 0x2aaaaaaab000 0x2aaaae06bf40 0x2aaaaaccce10 0x2aaaaaaab000 /lib64/ld-linux-x86-64.so.2
+preloaded_image: 4 0 0x2aaaf0747000 0x2aaaae06bf40 0x2aaaf0a42da8 0x2aaaf0747000 /lib64/libm.so.6
+preloaded_image: 5 0 0x2aaaf0b46000 0x2aaaae06bf40 0x2aaaf0d5cdc8 0x2aaaf0b46000 /lib64/libgcc_s.so.1
+preloaded_image: 6 0 0x2aaaf0d5e000 0x2aaaae06bf40 0x2aaaf10fcb00 0x2aaaf0d5e000 /lib64/libc.so.6
+preloaded_image: 7 0 0x2aaaf1103000 0x2aaaae06bf40 0x2aaaf1305d88 0x2aaaf1103000 /lib64/libdl.so.2
+-- end of image-load-log ----------------------------------------- 
+OSTid: 23260
+log_entries: 0
+ended_before_sc: 0
+num_logged_true_dependencies (RAW): 0
+num_logged_false_dependencies (WAR/WAW): 0
+num_signals 0
+num_syscalls: 0
+inscount: 10009
+ip_type:last_pc: 0x2aaaf0dd3b2f
+internal_repcount: 0
+internal_last_repcount: 0
+ip_type: init_pc: 0x00040158e
+restore_text_pc: 1
+ip_entry:restoretext_pc: 0x000401591
+ip_entry:restoretext_pc: 0x2aaaf0dd3b01
+ip_entry:restoretext_pc: 0x2aaaf0dd3b14
+ip_entry:restoretext_pc: 0x2aaaf0dd3b28
+ip_entry:restoretext_pc: 0x2aaaf0dd3b7c
+ip_entry:restoretext_pc: 0x000400bf0
