@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 # Usage: pinball.entry-addr.sh pinball_basename <thread_number>
 # Output: Application THREAD-0 entry PC
 # ./pinball.entry-addr.sh ../examples/MT/pinball.mt/log_0

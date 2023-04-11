@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 export ELFIE_COREBASE=0
 if [ -e ../../scripts ];
 then
