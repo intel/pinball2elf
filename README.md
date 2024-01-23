@@ -342,3 +342,6 @@ Contributions/suggestions to solve these open issues are most welcome!
 1. Build your binary with for a generic x86 processor architecture: (gcc/g++) -march=x86_64 or -march=core2.
     - Adding '-static' will make sure all libraries are linked in statically so no surprises on moving to a different machine.
 2. Generate pinball using "sde -nhm" so no new registers are saved in the initial pinball state.
+
+## External Uses of ELFie : References
+[Public Release and Validation of SPEC CPU2017 PinPoints](https://arxiv.org/pdf/2112.06981.pdf)
