@@ -336,7 +336,7 @@ Contributions/suggestions to solve these open issues are most welcome!
     Pinball generation is supported for Windows and MacOS as well. Consider writing a converter from pinball to *Portable Executable (PE)* format on Windows and *Mach-O* format on MacOS.
 
 ## Useful tips
-- Since the ELFie uses lots of mmap calls to allocate each 4KiB page, it's possible to overrun the max number of vm maps. You can "fix" this by adding vm.max_map_count = 2097152 to /etc/sysctl.conf (from Jason Lowe-Power).
+- Since the ELFie uses lots of mmap calls to allocate each 4KiB page, it's possible to overrun the max number of vm maps. You can "fix" this by adding vm.max_map_count = 2097152 to /etc/sysctl.conf (from Jason Lowe-Power). See the [link](https://stackoverflow.com/questions/42889241/how-to-increase-vm-max-map-count) to reload the configuration after setting the new value.
 
 #### Tips for creating a portable ELFie (that works on older processors, native or simulated)
 1. Build your binary with for a generic x86 processor architecture: (gcc/g++) -march=x86_64 or -march=core2.
@@ -344,4 +344,5 @@ Contributions/suggestions to solve these open issues are most welcome!
 2. Generate pinball using "sde -nhm" so no new registers are saved in the initial pinball state.
 
 ## External Uses of ELFie : References
-[Public Release and Validation of SPEC CPU2017 PinPoints](https://arxiv.org/pdf/2112.06981.pdf)
+- [Public Release and Validation of SPEC CPU2017 PinPoints](https://arxiv.org/pdf/2112.06981.pdf)
+- We have released the representative ELFies of a subset of the multi-threaded SPEC CPU2017 benchmarks [here](https://looppoint.github.io/hpca2023/)
