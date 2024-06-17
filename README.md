@@ -337,6 +337,7 @@ Contributions/suggestions to solve these open issues are most welcome!
 
 ## Useful tips
 - Since the ELFie uses lots of mmap calls to allocate each 4KiB page, it's possible to overrun the max number of vm maps. You can "fix" this by adding vm.max_map_count = 2097152 to /etc/sysctl.conf (from Jason Lowe-Power). See the [link](https://stackoverflow.com/questions/42889241/how-to-increase-vm-max-map-count) to reload the configuration after setting the new value.
+- Genearating pinballs for SPEC207 ref inputs requires a lot of memory so if pinball generation fails because of memory issues, try a machine with a larger physical memory.
 
 #### Tips for creating a portable ELFie (that works on older processors, native or simulated)
 1. Build your binary with for a generic x86 processor architecture: (gcc/g++) -march=x86_64 or -march=core2.
