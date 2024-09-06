@@ -417,7 +417,7 @@ class SYSSTATE_PRODUCER
       READ_STATE * rs = new READ_STATE(pc, buf_addr, req_count, act_count,
          filepos, fname);
       //rs->PrintReadState();
-      _read_state_list.push_front(rs);
+      _read_state_list.push_back(rs);
     }
 
     VOID AddCWDState(ADDRINT pc, ADDRINT buf_addr, INT32 buflength)
