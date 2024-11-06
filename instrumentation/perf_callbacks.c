@@ -365,6 +365,10 @@ void elfie_on_start(uint64_t num_threads, void* context)
    lte_pe_init(num_threads, 0/*SIGPEOVFL*/, &set);
 
    uint64_t ptscstart = rdtsc();
+   
+   // preopen_files() definitions to be added by pinball2elf*.sh script
+   preopen_files(); 
+   
    int i;
    for(i = 0; i < lte_pe_get_num_threads(); ++i)
    {
@@ -377,8 +381,8 @@ void elfie_on_start(uint64_t num_threads, void* context)
         lte_diprintfe(my_out_fd, ptscstart, '\n');
       lte_fsync(my_out_fd);
    }
-  // preopen_files()  and set_heap() definitions to be added by pinball2elf*.sh script 
-   preopen_files();
+   
+   // set_heap() definitions to be added by pinball2elf*.sh script 
    set_heap();
 }
 
