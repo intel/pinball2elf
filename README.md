@@ -21,6 +21,7 @@ pinball2elf has been tested with the following OS/tool/hardware combinations:
  1. OS: Ubuntu 16.04, gcc: 8.4.0, g++: 8.4.0, GNU ld 2.26.1
 
       Loader errors: *relocation truncated to fit: R_X86_64_32S against `data`*
+2. Large disk space usage while generating ELFies (being debugged).
 
 ## Quick Start Example
 1. Build pinball2elf
