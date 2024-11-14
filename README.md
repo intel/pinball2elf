@@ -185,7 +185,7 @@ Graceful exit : YES: either icount of pc+count used for exiting each thread.
 --------------------------------------------------------
 ## Input to *pinball2elf*
 
-User-level checkpoints known as *pinballs* are input to the *pinbll2elf* tool. These are created using the [PinPlay](http://wwww.pinplay.org) tool kit. A *pinball* is a collection of files capturing the execution state of a "Region of Interest" (ROI) from an application execution. A typical sequence of commands to generate and test a *pinball* suitable for *pinball2elf* is shown below:
+User-level checkpoints known as *pinballs* are input to the *pinbll2elf* tool. These are created using the [PinPlay](http://www.pinplay.org) tool kit. A *pinball* is a collection of files capturing the execution state of a "Region of Interest" (ROI) from an application execution. A typical sequence of commands to generate and test a *pinball* suitable for *pinball2elf* is shown below:
 ### Creating a *fat* pinball
  (Assuming 'bash' shell)
 ```
