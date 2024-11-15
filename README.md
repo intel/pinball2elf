@@ -316,7 +316,7 @@ Addr  9decb1 tid: 3 addrcount 4368
 
 The  pages  inside an ELFie containing  application code  are  marked  as  not loadable hence  tools,  such  as  the Gnu  debugger  (gdb),  can  not  *see*  application  pages  inside an  ELFie  right  away  after  the  initial  loading  of  an  ELFie. For  setting  a breakpoint  at  an  application  instruction,  the suggested  way  is  to  first  break  at *elfie\_on\_start()* where all application pages are guaranteed to be in memory and then  set  a  breakpoint  at  the  desired  application  address(hex). Symbolic  debugging of application code is  currently  not  supported  with  ELFies although pinball2elf can be extended to add application debug information  for  symbolic  debugging. ELFie  generation  scripts  make  sure  debug  information  does exist for ELFie callback routines hence they can be debugged symbolically (use the customized callbacks.c file copied to the working directory).  For  debugging  multi-threaded  ELFies  with  gdb,  first  doing  a  *set  detach-on-fork off* followed by *break elfie\_on\_thread\_start’ and using *info inferior* and *inferior N* commands works well.
 
-A perf ELFie, creates a monitor thread which spawns application main thread and waits for it. For debugging a perf help, use 'set follow-fork-mode' child to break on 'elfie_thread_on_start' routine which is executed in the application master thread.
+A perf ELFie, creates a monitor thread which spawns application main thread and waits for it. For debugging a perf help, use 'set follow-fork-mode' child to break on 'elfie_on_thread_start' routine which is executed in the application master thread.
 
 ## Open issues
  ELFie execution sometimes ends pre-maturely (before reaching the expected instruction
