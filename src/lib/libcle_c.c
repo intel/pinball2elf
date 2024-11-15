@@ -124,6 +124,9 @@ extern void lte_sys_exit(int status);
 
 void lte_exit(int status)
 {
+   if (!exit_callbacks_end) {
+      exit_callbacks_end = exit_callbacks;
+   }
    exit_callback_fn* callback = __sync_lock_test_and_set(&exit_callbacks_end, &exit_callbacks[0]);
    while(callback != &exit_callbacks[0])
       (*--callback)();
