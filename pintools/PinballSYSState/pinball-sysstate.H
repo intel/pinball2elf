@@ -194,10 +194,10 @@ class READ_STATE
 {
  private:   
     ADDRINT _syscall_pc;
-    UINT32 _count_act;
  public:   
     UINT32 _file_pos;
     UINT32 _count_req;
+    UINT32 _count_act;
     string _fname;
     ADDRINT  _buf_addr;
     CHAR * _shadow_buf;
@@ -436,7 +436,7 @@ class SYSSTATE_PRODUCER
            it != _read_state_list.end(); ++it)
       {
         if((*it)->ReadAddrInRange(memea)
-              && (*it)->ReadAddrInRange(memea+bytes-1))
+              || (*it)->ReadAddrInRange(memea+bytes-1))
         {
           retval = *it; 
         }
@@ -496,7 +496,29 @@ class SYSSTATE_PRODUCER
             rs->PrintReadState();
             cerr << '\n' ;
 #endif
-            rs->SafeCopy((CHAR *)memea_callback, bytes);
+            if (rs->ReadAddrInRange(memea_callback) && rs->ReadAddrInRange(memea_callback + bytes - 1)) {
+                rs->SafeCopy((CHAR *)memea_callback, bytes);
+            } else if (rs->ReadAddrInRange(memea_callback)) {
+                rs->SafeCopy((CHAR *)memea_callback, rs->_buf_addr + rs->_count_act - memea_callback);
+
+                ADDRINT last_memea_callback = rs->_buf_addr + rs->_count_act;
+                UINT32 last_bytes = bytes - (last_memea_callback - memea_callback);
+
+                READ_STATE *lastrs = p->FindReadState(last_memea_callback, last_bytes);
+                if (lastrs) {
+                    lastrs->SafeCopy((CHAR *)last_memea_callback, last_bytes);
+                }
+            } else {
+                rs->SafeCopy((CHAR *)rs->_buf_addr, memea_callback + bytes - rs->_buf_addr);
+
+                ADDRINT last_memea_callback = memea_callback;
+                UINT32 last_bytes = bytes - (memea_callback + bytes - rs->_buf_addr);
+
+                READ_STATE *lastrs = p->FindReadState(last_memea_callback, last_bytes);
+                if (lastrs) {
+                    lastrs->SafeCopy((CHAR *)last_memea_callback, last_bytes);
+                }
+            }
             return;
         }
         rs = p->FindCWDState(memea_callback, bytes);
