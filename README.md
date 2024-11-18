@@ -21,7 +21,11 @@ pinball2elf has been tested with the following OS/tool/hardware combinations:
  1. OS: Ubuntu 16.04, gcc: 8.4.0, g++: 8.4.0, GNU ld 2.26.1
 
       Loader errors: *relocation truncated to fit: R_X86_64_32S against `data`*
-2. Large disk space usage while generating ELFies (being debugged).
+ 2. AMX registers introduced in Sapphire Rapids are not yet handled by pinball2elf. Build your test binaries without AMX instructions and when generating pinballs, pass "-skl" to sde/sde64 specifying 'SkyLake' as the architecture to 
+emulate.
+
+      Loader errors: *relocation truncated to fit: R_X86_64_32S against `data`*
+3. Large disk space usage while generating ELFies (being debugged).
 
 ## Quick Start Example
 1. Build pinball2elf
@@ -209,7 +213,7 @@ If the ROI does any file inpout, this replay step may fail. You will need to ext
     setenv SDE_BUILD_KIT to point to SDE version 9.0 or higher
     cd *pinball2elf-directory*
 
-    cd pintool/SYSSTATE
+    cd pintool/PinballSYSState
 
     make
 ```
@@ -218,7 +222,7 @@ If the ROI does any file inpout, this replay step may fail. You will need to ext
 
 #### Create SYSSTATE for the pinball
 ```
- $SDE_BUILD_KIT/sde64 -t64 $SDE_BUILD_KIT/intel64/sde-pinball-sysstate.so -replay -replay:basename pinball.st/log_0 -sysstate:out pinball.st/log_0 -- $SDE_BUILD_KIT/intel64/nullapp 
+ $SDE_BUILD_KIT/sde64 -t64 $SDE_BUILD_KIT/intel64/sde-pinball-sysstate.so -replay -replay:addr_trans -replay:basename pinball.st/log_0 -sysstate:out pinball.st/log_0 -- $SDE_BUILD_KIT/intel64/nullapp 
 Will produce sysstate in pinball.st/log_0.sysstate
 Producer pinball.st/log_0
 Hello world 1
@@ -338,7 +342,7 @@ Contributions/suggestions to solve these open issues are most welcome!
 
 ## Useful tips
 - Since the ELFie uses lots of mmap calls to allocate each 4KiB page, it's possible to overrun the max number of vm maps. You can "fix" this by adding vm.max_map_count = 2097152 to /etc/sysctl.conf (from Jason Lowe-Power). See the [link](https://stackoverflow.com/questions/42889241/how-to-increase-vm-max-map-count) to reload the configuration after setting the new value.
-- Genearating pinballs for SPEC207 ref inputs requires a lot of memory so if pinball generation fails because of memory issues, try a machine with a larger physical memory.
+- Genearating pinballs for SPEC2017 ref inputs requires a lot of memory so if pinball generation fails because of memory issues, try a machine with a larger physical memory.
 
 #### Tips for creating a portable ELFie (that works on older processors, native or simulated)
 1. Build your binary with for a generic x86 processor architecture: (gcc/g++) -march=x86_64 or -march=core2.
