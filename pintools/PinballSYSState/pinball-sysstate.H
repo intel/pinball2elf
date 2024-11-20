@@ -1486,7 +1486,7 @@ class SYSSTATE_CONSUMER
         }
         else
         {
-          string cwdstring = mycwd + string("/") + _in_state_rootdirname + _cwd_path;
+          string cwdstring = mycwd + string("/") + _in_state_rootdirname + _cwd_path + string("/");
           return cwdstring;
         }
       }
