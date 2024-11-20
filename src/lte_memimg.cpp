@@ -221,8 +221,12 @@ lte_uint64_t lte_memimg_t::compact(lte_uint64_t regions_max)
       for(std::vector<lte_mempage_t*>::iterator it = pages.begin(); it != pages.end(); ++it)
       {
          lte_mempage_t* p = *it;
-         if(same_type_pages(*p, *p->region_next, SHF_TYPE_MASK|SHF_ENTRYPOINT|SHF_DYNALLOC))
+         if(same_type_pages(*p, *p->region_next, SHF_EXECINSTR|SHF_ALLOC|SHF_ENTRYPOINT|SHF_DYNALLOC))
          {
+            if (p->region_next->va - p->va > 0x40000000)
+            {
+               continue;
+            }
             p->head = NULL;
             if(--regions_count < regions_max)
                break;
