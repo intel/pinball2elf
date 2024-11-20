@@ -1926,9 +1926,14 @@ class SYSSTATE_CONSUMER
             cerr << "First SYS_brk: forced retval 0x" << hex << p->_first_brk_addr << endl;
           }
        }
+       else if(tdata->_data.arg0 == 0)
+       {
+          PIN_SetContextReg(ctxt, REG_GAX, p->_first_brk_addr);
+       }
        else if(tdata->_data.arg0 != 0)
        {
           PIN_SetContextReg(ctxt, REG_GAX, tdata->_data.arg0);
+          p->_first_brk_addr = tdata->_data.arg0;
           if(p->_verbose)
           {
             cerr << "SYS_brk: forced retval 0x" << hex << tdata->_data.arg0 << endl;
