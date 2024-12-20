@@ -595,83 +595,58 @@ class SYSSTATE_PRODUCER
       }
     }
 
+static void writeToFileAndClose(const std::string& fname, const std::string& outstr) {
+    std::ofstream file(fname, std::ios::out | std::ios::trunc); // Open file for writing, truncate if it exists
+    if (file.is_open()) {
+        file << outstr; // Write the string to the file
+        file.close(); // Close the file
+    } else {
+        // Handle error
+        perror("Error opening file");
+    }
+    file.close();
+}
     static VOID OutputBRKvalues(string out_dirname, VOID *v)
     {
       SYSSTATE_PRODUCER *p = (SYSSTATE_PRODUCER *) v;
       string fname = out_dirname + "/BRK.log";
-      INT32 fid;
-      mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-      fid = open(fname.c_str(),O_WRONLY|O_CREAT|O_TRUNC, mode);
-      if (fid == -1)
-      {
-        cerr << "Could not open output  file " <<
-          fname.c_str() << endl;
-        ASSERTX(0);
-      }
       ostringstream ss;
       ss << "0x" << hex << p->_first_brk_retval << "\n";
       ss << "0x" << hex << p->_last_brk_retval << "\n";
-      const char * outstr = ss.str().c_str();
-      if (write(fid, outstr, strlen(outstr)) < 0 )
-      {
-        cerr << "Could not write to  file " <<
-          fname.c_str() << endl;
-        ASSERTX(0);
-      }
+      string  outstr = ss.str();
+      writeToFileAndClose(fname, outstr);
     }
 
     static VOID OutputPIDvalue(string out_dirname, VOID *v)
     {
       SYSSTATE_PRODUCER *p = (SYSSTATE_PRODUCER *) v;
       string fname = out_dirname + "/PID.log";
-      INT32 fid;
-      mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-      fid = open(fname.c_str(),O_WRONLY|O_CREAT|O_TRUNC, mode);
-      if (fid == -1)
-      {
-        cerr << "Could not open output  file " <<
-          fname.c_str() << endl;
-        ASSERTX(0);
-      }
       ostringstream ss;
       ss << "0x" << hex << p->_pid << "\n";
-      const char * outstr = ss.str().c_str();
-      if (write(fid, outstr, strlen(outstr)) < 0 )
-      {
-        cerr << "Could not write to  file " <<
-          fname.c_str() << endl;
-        ASSERTX(0);
-      }
+      string outstr = ss.str().c_str();
+      writeToFileAndClose(fname, outstr);
     }
 
     static VOID OutputMMAPvalues(string out_dirname, VOID *v)
     {
       SYSSTATE_PRODUCER *p = (SYSSTATE_PRODUCER *) v;
       string fname = out_dirname + "/MMAP.log";
-      INT32 fid;
-      mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-      fid = open(fname.c_str(),O_WRONLY|O_CREAT|O_TRUNC, mode);
-      if (fid == -1)
-      {
-        cerr << "Could not open output  file " <<
-          fname.c_str() << endl;
-        ASSERTX(0);
-      }
       MMAP_ADDR_LIST :: iterator mit;
       cerr << "OutputMMAPvalues(): " << endl;
-      for ( mit = p->_mmap_addr_list.begin();
+      std::ofstream file(fname, std::ios::out | std::ios::trunc); // Open file for writing, truncate if it exists
+     if (!file.is_open()) {
+        // Handle error
+        perror("Error opening file");
+     }
+     for ( mit = p->_mmap_addr_list.begin();
              mit != p->_mmap_addr_list.end(); ++mit)
-      {
+     {
         ostringstream ss;
         ss << "0x" << hex << *mit << "\n";
-        const char * outstr = ss.str().c_str();
-        if (write(fid, outstr, strlen(outstr)) < 0 )
-        {
-          cerr << "Could not write to  file " <<
-            fname.c_str() << endl;
-          ASSERTX(0);
-        }
+        string outstr = ss.str().c_str();
+        file << outstr; // Write the string to the file
       }
+     file.close(); // Close the file
     }
 
     static VOID OutputCWD(string out_dirname, VOID *v)
@@ -694,22 +669,8 @@ class SYSSTATE_PRODUCER
 
       cerr << "cwd_value: " << p->_cwd_value << endl;
       string fname = out_dirname + "/CWD.log";
-      INT32 fid;
-      mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-      fid = open(fname.c_str(),O_WRONLY|O_CREAT|O_TRUNC, mode);
-      if (fid == -1)
-      {
-        cerr << "Could not open output  file " <<
-          fname.c_str() << endl;
-        ASSERTX(0);
-      }
-      const char * outstr = p->_cwd_value.c_str();
-      if (write(fid, outstr, strlen(outstr)) < 0 )
-      {
-        cerr << "Could not write to  file " <<
-          fname.c_str() << endl;
-        ASSERTX(0);
-      }
+      string outstr = p->_cwd_value;
+      writeToFileAndClose(fname, outstr);
     }
 
     static VOID FiniProducer( INT32 code, VOID *v)
@@ -804,7 +765,7 @@ class SYSSTATE_PRODUCER
         cerr << "outfname : " << outfname << endl;
         INT32 dummy_fileFD;
         mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-        dummy_fileFD = open(outfname.c_str(),O_WRONLY|O_CREAT|O_TRUNC, mode);
+        dummy_fileFD = open(outfname.c_str(),O_WRONLY|O_CREAT| O_SYNC | O_TRUNC, mode);
         if (dummy_fileFD == -1)
         {
           cerr << "Could not open output  file " <<
