@@ -36,3 +36,5 @@ MyHandler called: RTNstop: Exiting on performance counter stop event by design
 RTN ROI end: TSC 75189684037029940
 hw_cpu_cycles:53501457 hw_instructions:99621299 
 
+# Paper under publication review
+"Accelerating the Simulation of Parallel Workloads using Loop-Bounded Checkpoints"

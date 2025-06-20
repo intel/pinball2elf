@@ -53,6 +53,7 @@ typedef enum {
   PROBE_EVENT_INVALID = 0,
   PROBE_EVENT_RSTART,
   PROBE_EVENT_RSTOP,
+  PROBE_EVENT_REXEC,
   PROBE_EVENT_IDELTASTOP,
   PROBE_EVENT_ISTART,
   PROBE_EVENT_ISTOP,
@@ -82,6 +83,7 @@ typedef struct _RINFO
  string name;
  UINT64 count;
  BOOL probed;
+ BOOL isExec;
  IELIST ielist;
 } RINFO;
 
@@ -93,7 +95,7 @@ static UINT32 recordNum = 0;
 static BOOL pbverbose = FALSE;
 static PIN_LOCK probeLock;
 
-typedef VOID (*PROBE_CONTROL_HANDLER)(PROBE_EVENT_TYPE);
+typedef VOID (*PROBE_CONTROL_HANDLER)(PROBE_EVENT_TYPE, BOOL);
 static PROBE_CONTROL_HANDLER UserCallBack = NULL;
 
   string EventStr(PROBE_EVENT_TYPE e)
@@ -108,6 +110,11 @@ static PROBE_CONTROL_HANDLER UserCallBack = NULL;
         case PROBE_EVENT_RSTOP:
         {
           return "RTNstop";
+          break;
+        }
+        case PROBE_EVENT_REXEC:
+        {
+          return "RTNexec";
           break;
         }
         case PROBE_EVENT_ISTART:
@@ -204,9 +211,68 @@ static VOID MyRTNProbe(UINT32 i)
     cerr << EventStr(event) << " event triggered @" << trinfo->name << ":" << dec << trinfo->ielist.front().second << endl << flush;
     trinfo->ielist.pop_front();
     PIN_ReleaseLock(&probeLock);
-    if (UserCallBack) UserCallBack(event);
+    if (UserCallBack) UserCallBack(event, TRUE/*Before*/);
     return;
   }
+
+static VOID MyRTNProbeBefore(UINT32 i)
+  {
+    if (i==RCOUNT) return; // not a user-specifed probe-point
+
+    RINFO *trinfo = rinfo[i];
+    ASSERTX(trinfo);
+    //if(pbverbose) cerr << " MyRTNProbe " << trinfo->name << endl;
+    ATOMIC::OPS::Increment<UINT64>
+      (&trinfo->count,1);
+    //if(pbverbose) cerr << " exec_count " << trinfo->count << endl;
+    if(trinfo->ielist.empty()) return;
+    //if(pbverbose) cerr << " front " << endl;
+    //if(pbverbose) PrintRinfo(trinfo);
+    PIN_GetLock(&probeLock, 1);
+    if(trinfo->count != trinfo->ielist.front().second)
+    { 
+      PIN_ReleaseLock(&probeLock);
+      return;
+    } 
+    PROBE_EVENT_TYPE event = trinfo->ielist.front().first;
+    cerr << " exec_count " << dec << trinfo->count << endl;
+    cerr << EventStr(event) << " BEFORE event triggered @" << trinfo->name << ":" << dec << trinfo->ielist.front().second << endl << flush;
+    // trinfo->ielist.pop_front(); // not here
+    PIN_ReleaseLock(&probeLock);
+    if (UserCallBack) UserCallBack(event, TRUE/*Before*/);
+    return;
+  }
+
+static VOID MyRTNProbeAfter(UINT32 i)
+  {
+    if (i==RCOUNT) return; // not a user-specifed probe-point
+
+    RINFO *trinfo = rinfo[i];
+    ASSERTX(trinfo);
+    //if(pbverbose) cerr << " MyRTNProbe " << trinfo->name << endl;
+#if 0 // no updating counter in "ProbeAfter()
+    ATOMIC::OPS::Increment<UINT64>
+      (&trinfo->count,1);
+#endif
+    //if(pbverbose) cerr << " exec_count " << trinfo->count << endl;
+    if(trinfo->ielist.empty()) return;
+    //if(pbverbose) cerr << " front " << endl;
+    //if(pbverbose) PrintRinfo(trinfo);
+    PIN_GetLock(&probeLock, 1);
+    if((trinfo->count-1) != trinfo->ielist.front().second)
+    { 
+      PIN_ReleaseLock(&probeLock);
+      return;
+    } 
+    PROBE_EVENT_TYPE event = trinfo->ielist.front().first;
+    cerr << " exec_count " << dec << trinfo->count << endl;
+    cerr << EventStr(event) << " AFTER event triggered @" << trinfo->name << ":" << dec << trinfo->ielist.front().second << endl << flush;
+    trinfo->ielist.pop_front();
+    PIN_ReleaseLock(&probeLock);
+    if (UserCallBack) UserCallBack(event, FALSE/*not Before*/);
+    return;
+  }
+
 class PROBECONTROL
 {
   public:
@@ -340,6 +406,7 @@ class PROBECONTROL
 
       if (strcmp(eventstr.c_str(),"RTNstart") == 0) event = PROBE_EVENT_RSTART;
       else if (strcmp(eventstr.c_str(),"RTNstop") == 0) event = PROBE_EVENT_RSTOP;
+      else if (strcmp(eventstr.c_str(),"RTNexec") == 0) event = PROBE_EVENT_REXEC;
       else if (strcmp(eventstr.c_str(),"istart") == 0) event = PROBE_EVENT_ISTART;
       else if (strcmp(eventstr.c_str(),"istop") == 0) event = PROBE_EVENT_ISTOP;
       else if (strcmp(eventstr.c_str(),"ideltastop") == 0) event = PROBE_EVENT_IDELTASTOP;
@@ -352,6 +419,7 @@ class PROBECONTROL
       {
         case PROBE_EVENT_RSTART:
         case PROBE_EVENT_RSTOP:
+        case PROBE_EVENT_REXEC:
         {
           field.clear();
           getline(s, field, ':');
@@ -365,6 +433,8 @@ class PROBECONTROL
             trinfo->count = 0;
             trinfo->probed = FALSE;
             trinfo->name = rtnOrPC;
+            if (event == PROBE_EVENT_REXEC) trinfo->isExec = TRUE;
+            else trinfo->isExec = TRUE;
             recordNum++;
           }
           field.clear();
@@ -478,7 +548,6 @@ class PROBECONTROL
           if(IsPCstring(trinfo->name)) 
           {
             UINT64 pc=strtol(trinfo->name.c_str(),NULL,16);
-            RTN_Open(rtn);
             // search for needed instructions
             for (INS ins = RTN_InsHead(rtn); INS_Valid(ins) ; ins = INS_Next(ins))
             {
@@ -488,7 +557,6 @@ class PROBECONTROL
                 if (pc == insAddr)  // found the instruction create dummy function
                 {
                   if( pbverbose) cerr << "found PC :" << trinfo->name <<  " pcval:0x" << hex << pc << " in RTN " << RTN_Name(rtn) << endl;
-                  RTN_Close(rtn);
                   RTN newRtn = RTN_CreateAt(pc, "TriggerHere_" + trinfo->name);
                   if(!RTN_IsSafeForProbedInsertion(newRtn))
                   {
@@ -512,7 +580,6 @@ class PROBECONTROL
                   break; // out of INS loop
                 }
             }
-            if(!found) RTN_Close(rtn);
             if(found) break;// out of RTN loop
           }
           else
@@ -523,8 +590,12 @@ class PROBECONTROL
            }
            if(RTN_Name(rtn) == trinfo->name)
            {
-             PROTO myproto = PROTO_Allocate( PIN_PARG(void), CALLINGSTD_DEFAULT,
-              "MyRTNProbe", PIN_PARG(UINT32), PIN_PARG_END());
+             if(trinfo->isExec)
+             {
+              PROTO myprotoBefore = PROTO_Allocate( PIN_PARG(void), CALLINGSTD_DEFAULT,
+              "MyRTNProbeBefore", PIN_PARG(UINT32), PIN_PARG_END());
+              PROTO myprotoAfter = PROTO_Allocate( PIN_PARG(void), CALLINGSTD_DEFAULT,
+              "MyRTNProbeAfter", PIN_PARG(UINT32), PIN_PARG_END());
              if(pbverbose)cerr << "found rtn" << ":" << RTN_Name(rtn) <<  " address:0x" << hex << RTN_Address(rtn) <<endl;
              if(!RTN_IsSafeForProbedInsertion(rtn))
              {
@@ -534,13 +605,40 @@ class PROBECONTROL
                 // its target
              }
              RTN_InsertCallProbed(rtn, IPOINT_BEFORE, 
-              (AFUNPTR)MyRTNProbe, 
-                IARG_PROTOTYPE, myproto,
+              (AFUNPTR)MyRTNProbeBefore, 
+                IARG_PROTOTYPE, myprotoBefore,
+                IARG_UINT32, i, // index into rinfo[] 
+                IARG_END);
+             RTN_InsertCallProbed(rtn, IPOINT_AFTER, 
+              (AFUNPTR)MyRTNProbeAfter, 
+                IARG_PROTOTYPE, myprotoAfter,
                 IARG_UINT32, i, // index into rinfo[] 
                 IARG_END);
               trinfo->probed = TRUE;
               found = TRUE;
               break; // out of RTN loop
+             }
+             else
+             {
+              PROTO myproto = PROTO_Allocate( PIN_PARG(void), CALLINGSTD_DEFAULT,
+              "MyRTNProbe", PIN_PARG(UINT32), PIN_PARG_END());
+              if(pbverbose)cerr << "found rtn" << ":" << RTN_Name(rtn) <<  " address:0x" << hex << RTN_Address(rtn) <<endl;
+              if(!RTN_IsSafeForProbedInsertion(rtn))
+              {
+                cerr << "WARNING:Cannot insert probe at "+RTN_Name(rtn)+"\n";
+                continue;
+                // see if this is a direct jump and if yes try probing
+                // its target
+              }
+              RTN_InsertCallProbed(rtn, IPOINT_BEFORE, 
+                (AFUNPTR)MyRTNProbe, 
+                  IARG_PROTOTYPE, myproto,
+                  IARG_UINT32, i, // index into rinfo[] 
+                  IARG_END);
+                trinfo->probed = TRUE;
+                found = TRUE;
+                break; // out of RTN loop
+              }
             }
            }
          } // end for RTN

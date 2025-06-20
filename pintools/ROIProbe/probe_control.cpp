@@ -26,7 +26,7 @@ INT32 Usage()
     return -1;
 }
 
-VOID MyProbeHandler(PROBE_CONTROL::PROBE_EVENT_TYPE pe)
+VOID MyProbeHandler(PROBE_CONTROL::PROBE_EVENT_TYPE pe, BOOL IsBefore)
 {
   cerr << "MyHandler called: ";
   switch(pe)
@@ -39,6 +39,11 @@ VOID MyProbeHandler(PROBE_CONTROL::PROBE_EVENT_TYPE pe)
         case PROBE_CONTROL::PROBE_EVENT_RSTOP:
         {
           cerr <<  "RTNstop";
+          break;
+        }
+        case PROBE_CONTROL::PROBE_EVENT_REXEC:
+        {
+          cerr <<  "RTNexec" << (IsBefore ? " BEFORE ": " AFTER ");
           break;
         }
         default:

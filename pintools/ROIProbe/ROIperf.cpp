@@ -556,12 +556,13 @@ void start_pccounters()
 }
 
 
-void perf_on_entry(uint64_t num_threads)
+void perf_on_entry(uint64_t num_threads, const char *msg)
 {
    uint64_t ptscentry = rdtsc();
    if(KnobEnableOnStart) start_pccounters();
    if(KnobEnableOnStart) start_icounters();
-   lte_write(out_fd, "RTN ROI start: TSC ", lte_strlen("RTN ROI start: TSC ")-1); 
+   //lte_write(out_fd, "RTN ROI start: TSC ", lte_strlen("RTN ROI start: TSC ")-1); 
+   lte_write(out_fd, msg, lte_strlen(msg)-1); 
    lte_diprintfe(out_fd, ptscentry, '\n');
    if(counters_started) print_perfcounters(0);
    lte_write(out_fd, sep, lte_strlen(sep)-1);
@@ -618,7 +619,7 @@ void perf_on_exit()
     lte_close(my_out_fd);
 }
 
-VOID MyEventHandler(PROBE_EVENT_TYPE pe)
+VOID MyEventHandler(PROBE_EVENT_TYPE pe, BOOL IsBefore)
 {
   cerr << "MyEventHandler called: ";
   switch(pe)
@@ -626,7 +627,7 @@ VOID MyEventHandler(PROBE_EVENT_TYPE pe)
         case PROBE_EVENT_RSTART:
         {
           cerr <<  "RTNstart";
-          perf_on_entry(/*num_threads*/1);
+          perf_on_entry(/*num_threads*/1, "RTN ROI start: TSC ");
           if(ideltacount) 
           {
               cerr <<  ": enabling ideltastop counter: " << ideltacount << endl;
@@ -640,6 +641,12 @@ VOID MyEventHandler(PROBE_EVENT_TYPE pe)
           perf_on_exit();
           cerr <<  ": Exiting on performance counter stop event by design" << endl; 
           exit(0);
+          break;
+        }
+        case PROBE_EVENT_REXEC:
+        {
+          cerr <<  "RTNexec" << (IsBefore ? " BEFORE ": " AFTER ");
+          perf_on_entry(/*num_threads*/1, (IsBefore ? " RTN BEFORE : TSC ": " RTN AFTER: TSC "));
           break;
         }
         default:
