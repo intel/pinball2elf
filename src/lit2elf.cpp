@@ -761,6 +761,9 @@ int main(int argc, char** argv)
       return 1;
    }
 
+   // do compact before creating va list section
+   img.compact(elf->get_max_phnum() - 16);
+
    if(!get_config().no_startup_code())
    {
       remap_va = litelfMarkDynallocPages(img, arch_state, dynpages);

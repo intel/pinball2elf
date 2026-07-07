@@ -228,6 +228,21 @@ lte_uint64_t lte_memimg_t::compact(lte_uint64_t regions_max)
                continue;
             }
             p->head = NULL;
+            auto addr = p->va + p->region_size;
+            auto prev = p;
+            while (addr < prev->region_next->va) {
+               // fprintf(stderr, "repair section: 0x%lx\n", addr);
+               add_missing_page(addr, &zero_page_content[0]);
+               auto np = &m_mem[addr];
+               np->region_size = LTE_PAGE_SIZE;
+               np->region_next = prev->region_next;
+               prev->region_next = np;
+               np->head = NULL;
+               np->next = NULL;
+               addr += np->region_size;
+               prev = np;
+            }
+
             if(--regions_count < regions_max)
                break;
          }
