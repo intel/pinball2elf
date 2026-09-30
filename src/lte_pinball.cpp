@@ -299,7 +299,7 @@ bool pinball_arch_state_t::load_arch_state(const char* fname, lte_x86_state_t* s
                   LTE_WARN("wrong format [%s:%d]", fname, f.getlinesread());
                   continue;
                }
-               if(index > m_regs_info.size())
+               if(index >= m_regs_info.size())
                {
                   LTE_WARN("wrong register index [%s:%d]", fname, f.getlinesread());
                   continue;
@@ -388,7 +388,7 @@ bool pinball_arch_state_t::load_arch_desc(const char* fname)
                m_regs_info.resize(m_regs_info.size()+delta);
             }
             last_index = (lte_int32_t)index;
-            if(index > m_regs_info.size())
+            if(index >= m_regs_info.size())
                m_regs_info.resize(index);
 
 
