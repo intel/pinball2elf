@@ -104,7 +104,7 @@ char* lte_strlist_t::getline(FILE* f, char wt)
 char* lte_strrvrs(char* str, lte_size_t len, char* buffer, lte_size_t size)
 {
    if(size <= len)
-      str += len - (size - 1);
+      return NULL;
 
    lte_uint16_t* psrc = (lte_uint16_t*)(str + len);
    lte_uint16_t* pdst = (lte_uint16_t*)buffer;
